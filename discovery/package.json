@@ -1,0 +1,11 @@
+{
+  "name": "karin-discovery",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "check": "node --check index.js"
+  },
+  "devDependencies": {
+    "wrangler": "^4.142.0"
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "name": "karin-calendar",
+  "main": "index.js",
+  "compatibility_date": "2026-10-08",
+  "account_id": "0c1723108de2b45ee7c8e4b45014a447",
+  "workers_dev": false,
+  "preview_urls": false,
+  "routes": [
+    {
+      "pattern": "calendar.karin-lab.com",
+      "custom_domain": true
+    }
+  ],
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "karin-calendar",
+      "database_id": "9298b3ea-3a6a-4de7-8249-8cd9e69641a2"
+    }
+  ]
+}
