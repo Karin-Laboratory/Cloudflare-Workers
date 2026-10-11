@@ -4,9 +4,9 @@ import vm from 'node:vm';
 import test from 'node:test';
 
 const src=readFileSync(new URL('../index.js',import.meta.url),'utf8');
-const page=src.match(/const PAGE=String\\.raw`([\\s\\S]*?)`;\\nfunction iconFallback/);
+const page=src.match(/const PAGE=String\.raw`([\s\S]*?)`;\nfunction iconFallback/);
 assert.ok(page,'Homepage HTML template found');
-const script=page[1].match(/<script>([\\s\\S]*?)<\\/script>/);
+const script=page[1].match(/<script>([\s\S]*?)<\/script>/);
 assert.ok(script,'Homepage browser script found');
 new Function(script[1]);
 const start=script[1].indexOf('function externalDrag(e)');
