@@ -1,0 +1,21 @@
+{
+  "name": "karin-portal",
+  "main": "index.js",
+  "compatibility_date": "2026-10-08",
+  "account_id": "0c1723108de2b45ee7c8e4b45014a447",
+  "workers_dev": false,
+  "preview_urls": false,
+  "routes": [
+    {
+      "pattern": "portal.karin-lab.com",
+      "custom_domain": true
+    }
+  ],
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "karin-portal",
+      "database_id": "30e3721e-1844-4bed-bb18-c76756cf479a"
+    }
+  ]
+}
