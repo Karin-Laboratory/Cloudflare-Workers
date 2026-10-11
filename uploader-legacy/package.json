@@ -1,0 +1,11 @@
+{
+  "name": "karin-uploader",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "check": "node --check worker.mjs && node --check page.mjs"
+  },
+  "devDependencies": {
+    "wrangler": "^4.142.0"
+  }
+}
