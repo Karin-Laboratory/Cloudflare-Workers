@@ -1,0 +1,29 @@
+{
+  "name": "karin-notepad",
+  "main": "worker.js",
+  "compatibility_date": "2026-09-01",
+  "workers_dev": false,
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "karin-notepad",
+      "database_id": "4acbe271-95ce-4cea-85d6-c2216810bfd4"
+    }
+  ],
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "ROOM",
+        "class_name": "NotepadRoom"
+      }
+    ]
+  },
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": [
+        "NotepadRoom"
+      ]
+    }
+  ]
+}
