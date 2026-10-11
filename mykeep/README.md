@@ -298,3 +298,9 @@ migrations/       D1の全マイグレーション
 wrangler.jsonc    Worker・D1・R2・Cron設定
 package.json      開発・ビルド・デプロイ用コマンド
 ```
+
+## モノレポ構成での運用
+
+このMyKeepアプリは、Karin Workersモノレポの `mykeep/` に配置されています。`npm ci`、`npm run build`、`npx wrangler deploy` などの操作はこのディレクトリを起点に実行します。Cloudflare Workers Buildsも `main` ブランチの `/mykeep` をルートとして使用し、`mykeep/**` の変更だけを検知します。
+
+GitHubのリポジトリ名はアプリ名とは独立です。MyKeepのWorker名、Cloudflare Access、D1、R2、独自ドメインは変更しません。
