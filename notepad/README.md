@@ -30,16 +30,18 @@ Ctrl+S はクラウド保存、Ctrl+Shift+S はローカルPCへダウンロー�
 - ブラウザ更新によって編集中のUndoスタックは消える。保存履歴はクラウドに残る。
 - 同期処理中やオフラインでは必ず右上の保存状態を確認する。
 - 別端末のリアルタイム同期はWebSocket接続中に機能する。ブラウザでのA/B同時編集の実機検証は別途必要。
-- Cloudflare API経由で直接デプロイしたため、GitHub更新だけでは自動配備されない。
+- Cloudflare Workers Buildsによる自動デプロイが有効です。`main` の `notepad/**` を監視します。更新時はGitHub ActionsとCloudflare Buildsの結果を確認してください。
 - Microsoft公式アプリではない。
 
-## 開発用デプロイ設定
+## GitHub自動デプロイ設定
 
-Worker script: `karin-notepad`、main module: `worker.js`、compatibility_date: `2026-09-01`。
+正式ソース: `Karin-Laboratory/Cloudflare-Workers` の `main/notepad/`。Worker script: `karin-notepad`、main module: `worker.js`、compatibility_date: `2026-09-01`。
 
 Bindings: `DB` = D1 `karin-notepad`; `ROOM` = SQLite backed Durable Object `NotepadRoom`、migration tag `v1`。
 
-Accessの設定はCloudflare側で管理する。公開リポジトリに認証情報を保存しない。
+Cloudflare Workers Builds: branch `main`、root directory `/notepad`、watch paths `notepad/**`、build = `npm install --no-audit --no-fund && npm run check && npx wrangler deploy --dry-run`、deploy = `npx wrangler deploy --keep-vars`。
+
+D1、Durable Objects、カスタムドメインの設定は `wrangler.jsonc` に定義します。Accessの設定はCloudflare側で管理し、公開リポジトリに認証情報を保存しません。
 
 ## スマートフォン対応（2026-10-11）
 
