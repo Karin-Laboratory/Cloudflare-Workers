@@ -1,0 +1,11 @@
+{
+  "name": "karin-gmail-mirror",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "check": "node --check worker.mjs && node --check access.mjs && node --check page.mjs"
+  },
+  "devDependencies": {
+    "wrangler": "^4.142.0"
+  }
+}
