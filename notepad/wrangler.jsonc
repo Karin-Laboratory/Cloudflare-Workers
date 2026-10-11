@@ -25,5 +25,13 @@
         "NotepadRoom"
       ]
     }
+  ],
+  "account_id": "0c1723108de2b45ee7c8e4b45014a447",
+  "preview_urls": false,
+  "routes": [
+    {
+      "pattern": "notepad.karin-lab.com",
+      "custom_domain": true
+    }
   ]
 }
