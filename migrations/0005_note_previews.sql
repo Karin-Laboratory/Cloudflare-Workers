@@ -1,4 +1,0 @@
-ALTER TABLE notes ADD COLUMN preview_title TEXT NOT NULL DEFAULT '';
-ALTER TABLE notes ADD COLUMN preview_description TEXT NOT NULL DEFAULT '';
-ALTER TABLE notes ADD COLUMN preview_image TEXT NOT NULL DEFAULT '';
-ALTER TABLE notes ADD COLUMN preview_hostname TEXT NOT NULL DEFAULT '';

@@ -1,1 +1,0 @@
-ALTER TABLE notes ADD COLUMN card_image TEXT NOT NULL DEFAULT 'auto';
