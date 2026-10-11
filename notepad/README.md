@@ -6,7 +6,7 @@ Windows のメモ帳をイメージした、Cloudflare Workers 上のテキス�
 
 ## 構成
 
-- GitHub: このブランチ `notepad-web` の `notepad/worker.js`
+- GitHub: モノレポの `main` ブランチにある `notepad/worker.js`。旧 `notepad-web` ブランチは履歴保存用に残します。
 - Cloudflare Workers: `karin-notepad`
 - Cloudflare Access: 本人メールアドレスのみ許可するメールOTP。セッション有効期限 720h (30日)
 - Durable Objects: `NotepadRoom` (WebSocket、変更内容の即時配信と調停)
