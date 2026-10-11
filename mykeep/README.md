@@ -304,3 +304,7 @@ package.json      開発・ビルド・デプロイ用コマンド
 このMyKeepアプリは、Karin Workersモノレポの `mykeep/` に配置されています。`npm ci`、`npm run build`、`npx wrangler deploy` などの操作はこのディレクトリを起点に実行します。Cloudflare Workers Buildsも `main` ブランチの `/mykeep` をルートとして使用し、`mykeep/**` の変更だけを検知します。
 
 GitHubのリポジトリ名はアプリ名とは独立です。MyKeepのWorker名、Cloudflare Access、D1、R2、独自ドメインは変更しません。
+
+### リポジトリ名の変更（2026-10-11）
+
+リポジトリは [`Karin-Laboratory/Cloudflare-Workers`](https://github.com/Karin-Laboratory/Cloudflare-Workers) に改名済みです。MyKeepの正式ソースはこのリポジトリの `main/mykeep/` にあります。Cloudflare Workers Buildsは、このディレクトリをルートにして自動ビルド・デプロイします。
