@@ -77,7 +77,7 @@ export class NotepadRoom{
  async webSocketError(ws){try{ws.close(1011,"internal error")}catch(e){}}
 }
 
-export default {async fetch(request,env){
+const karinOriginalWorker = {async fetch(request,env){
 const u=new URL(request.url);if(u.hostname!=='notepad.karin-lab.com')return new Response('Not Found',{status:404});
 if(u.pathname==='/socket'){if(request.headers.get('Upgrade')!=='websocket')return response({error:'Upgrade required'},426);if(request.headers.get('Origin')!=='https://notepad.karin-lab.com')return response({error:'Origin forbidden'},403);return env.ROOM.get(env.ROOM.idFromName('karin-notepad-room')).fetch(request);}
 if(request.method!=='GET'&&request.method!=='HEAD')return new Response('Method Not Allowed',{status:405});
@@ -85,3 +85,5 @@ const assets={'/':[HTML,'text/html; charset=utf-8'],'/index.html':[HTML,'text/ht
 const a=assets[u.pathname];if(!a)return new Response('Not Found',{status:404});
 return new Response(request.method==='HEAD'?null:a[0],{headers:{'Content-Type':a[1],'Cache-Control':'no-store','X-Content-Type-Options':'nosniff','Referrer-Policy':'no-referrer','X-Frame-Options':'DENY','Content-Security-Policy':"default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self' wss://notepad.karin-lab.com; img-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'"}});
 }};
+const KARIN_FAVICON_SVG="<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 64 64\"><defs><linearGradient id=\"g\"><stop stop-color=\"#1c607d\"/><stop offset=\"1\" stop-color=\"#53d1c8\"/></linearGradient></defs><rect width=\"64\" height=\"64\" rx=\"15\" fill=\"url(#g)\"/><g stroke=\"#fff\" stroke-width=\"3.2\" fill=\"none\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M21 14h17l7 7v27H21z M38 14v10h7 M25 31h15 M25 38h15 M25 45h10\"/></g></svg>";
+export default {...karinOriginalWorker,async fetch(request,env,ctx){const pathname=new URL(request.url).pathname;if(pathname==='/favicon.svg')return new Response(KARIN_FAVICON_SVG,{headers:{'content-type':'image/svg+xml; charset=utf-8','cache-control':'public,max-age=86400','x-content-type-options':'nosniff'}});if(pathname==='/favicon.ico')return Response.redirect(new URL('/favicon.svg',request.url),302);const response=await karinOriginalWorker.fetch(request,env,ctx);if(response.status===200&&!response.webSocket&&(response.headers.get('content-type')||'').toLowerCase().includes('text/html'))return new HTMLRewriter().on('head',{element(el){el.append('<link rel="icon" href="/favicon.svg" type="image/svg+xml">',{html:true})}}).transform(response);return response;}};
