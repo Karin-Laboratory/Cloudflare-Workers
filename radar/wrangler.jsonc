@@ -1,0 +1,21 @@
+{
+  "name": "karin-radar",
+  "main": "index.js",
+  "compatibility_date": "2026-10-08",
+  "account_id": "0c1723108de2b45ee7c8e4b45014a447",
+  "workers_dev": false,
+  "preview_urls": false,
+  "routes": [
+    {
+      "pattern": "radar.karin-lab.com",
+      "custom_domain": true
+    }
+  ],
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "karin-radar",
+      "database_id": "d295b2d1-8a3c-44d5-9d43-7ea6d2a448f6"
+    }
+  ]
+}
