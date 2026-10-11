@@ -36,5 +36,12 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
+      - name: Install Notepad build dependencies
+        run: npm install --no-audit --no-fund
+        working-directory: notepad
       - name: Syntax-check Notepad Worker
-        run: node --check notepad/worker.js
+        run: npm run check
+        working-directory: notepad
+      - name: Bundle Notepad without deploying
+        run: npx wrangler deploy --dry-run
+        working-directory: notepad
