@@ -1,0 +1,49 @@
+{
+  "name": "karin-cron-hub",
+  "main": "index.js",
+  "compatibility_date": "2026-10-08",
+  "account_id": "0c1723108de2b45ee7c8e4b45014a447",
+  "workers_dev": false,
+  "preview_urls": false,
+  "triggers": {
+    "crons": [
+      "*/30 * * * *",
+      "5 0,12 * * *"
+    ]
+  },
+  "d1_databases": [
+    {
+      "binding": "MYKEEP_DB",
+      "database_name": "mykeep",
+      "database_id": "53ee9329-4b30-47b5-8c97-c0cc9c374613"
+    }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "MYKEEP_IMAGES",
+      "bucket_name": "mykeep-images"
+    }
+  ],
+  "services": [
+    {
+      "binding": "DISCOVERY",
+      "service": "karin-discovery",
+      "environment": "production"
+    },
+    {
+      "binding": "MUSEUM",
+      "service": "karin-indie-app-museum",
+      "environment": "production"
+    },
+    {
+      "binding": "PORTAL",
+      "service": "karin-portal",
+      "environment": "production"
+    },
+    {
+      "binding": "RADAR",
+      "service": "karin-radar",
+      "environment": "production"
+    }
+  ]
+}

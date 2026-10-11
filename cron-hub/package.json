@@ -1,0 +1,11 @@
+{
+  "name": "karin-cron-hub",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "check": "node --check index.js"
+  },
+  "devDependencies": {
+    "wrangler": "^4.142.0"
+  }
+}
