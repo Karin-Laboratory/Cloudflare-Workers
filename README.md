@@ -1,4 +1,4 @@
-# Karin Workers
+# Cloudflare Workers | Karin-Lab
 
 Cloudflare Workers で動かす Karin-Lab 個人開発アプリのソースコードを、ひとつの GitHub リポジトリで管理するためのモノレポです。
 
@@ -22,8 +22,8 @@ Cloudflare Workers で動かす Karin-Lab 個人開発アプリのソースコ�
 ## ビルドとデプロイ
 
 - `mykeep/`: `npm ci`、`npm run build`、`node tests/pin-levels.mjs`、`npx wrangler deploy --keep-vars`。Cloudflare Workers Builds の root directory = `/mykeep`。
-- `notepad/`: ソースは `worker.js`。Cloudflare Buildsの接続は別途行い、root directory = `/notepad` を指定する。現在のCloudflare API経由デプロイは運用維持する。
+- `notepad/`: `npm install`、`npm run check`、`npx wrangler deploy --dry-run`、`npx wrangler deploy --keep-vars`。Cloudflare Workers Buildsの root directory = `/notepad`、watch paths = `notepad/**`。
 
 **公開リポジトリ**です。Cloudflare Access のメールアドレス、APIキー、OTPやトークン、実データをコードに埋め込まないでください。D1/R2のIDと公開のデプロイ設定は機密ではありませんが、秘密情報はCloudflare側で管理してください。
 
-旧MyKeep専用の作業履歴はGitで維持し、旧 `notepad-web` ブランチの履歴も削除しません。リポジトリ名変更やCloudflare Workers Buildsの連携更新時には、ビルド成否を確認します。
+旧MyKeep専用の作業履歴はGitで維持し、旧 `notepad-web` ブランチの履歴も削除しません。GitHubの正式リポジトリ名は `Karin-Laboratory/Cloudflare-Workers`。Cloudflare Workers Buildsでは各アプリのフォルダだけを監視し、`main` の変更で自動デプロイします。リポジトリの改名後に連携を検証済みです。
