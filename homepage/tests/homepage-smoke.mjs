@@ -35,10 +35,29 @@ test('Imported links get readable titles',()=>{
  assert.equal(fns.importedTitle('https://to-do.office.com/'),'Microsoft To Do');
  assert.equal(fns.importedTitle('https://unknown.example/'),'unknown.example');
 });
-test('LAN and missing internal links have dedicated icons',()=>{
- assert.ok(src.includes('"nas":['));
- assert.ok(src.includes('"server":['));
- assert.ok(src.includes('"web":['));
- assert.ok(src.includes("privateHost?'/app-icon/'"));
- assert.ok(src.includes("KARIN_ICON_SET[slug]||KARIN_ICON_SET.web"));
+test('Intranet site links use distinct thematic SVG icons',()=>{
+ const start=script[1].indexOf('function intranetIconSlug(');
+ const end=script[1].indexOf('function render(){',start);
+ assert.ok(start>=0&&end>start,'intranet icon resolver exists');
+ const iconFor=vm.runInNewContext(script[1].slice(start,end)+'\n(intranetIconSlug)');
+ const samples=[
+  ['z4g4 Proxmox','https://192.168.0.55:8006/','proxmox'],
+  ['BS4K 録画サーバ','http://192.168.1.52:8888/','dvr'],
+  ['Router / OpenWrt','http://192.168.0.1/','router'],
+  ['TS5200','http://192.168.0.23/','storage'],
+  ['Cloud Commander TS5200','http://192.168.0.23/','filemanager'],
+  ['us-310ea Cockpit','#','cockpit'],
+  ['us-310eb Cockpit','#','cockpit-alt'],
+  ['Homepage','http://192.168.0.21:3000/','intranet-home'],
+  ['Private app','http://10.0.0.5/','intranet'],
+  ['Private app','http://172.23.0.5/','intranet'],
+  ['Private app','http://100.71.4.3/','intranet']
+ ];
+ for(const [title,url,expected] of samples){
+  assert.equal(iconFor({title,url,description:''},new URL(url,'https://example.test').hostname),expected,title);
+  assert.ok(src.includes('"'+expected+'":['),'SVG definition exists for '+expected);
+ }
+ assert.equal(iconFor({title:'Public Site',url:'https://example.com',description:''},'example.com'),'');
+ assert.ok(!src.includes("privateHost?'/app-icon/'"));
+ assert.ok(src.includes('intranetIconSlug(l,host)'));
 });
