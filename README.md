@@ -51,3 +51,10 @@ Calendar、Portal、Museum、DiscoveryなどのWorkerもソース取込み済み
 **公開リポジトリ**です。Cloudflare Access のメールアドレス、APIキー、OTPやトークン、実データをコードに埋め込まないでください。D1/R2のIDと公開のデプロイ設定は機密ではありませんが、秘密情報はCloudflare側で管理してください。
 
 旧MyKeep専用の作業履歴はGitで維持し、旧 `notepad-web` ブランチの履歴も削除しません。GitHubの正式リポジトリ名は `Karin-Laboratory/Cloudflare-Workers`。Cloudflare Workers Buildsでは各アプリのフォルダだけを監視し、`main` の変更で自動デプロイします。リポジトリの改名後に連携を検証済みです。
+
+## ライセンスと公開上の注意
+
+- 旧 `MyKeep` 由来のルート `LICENSE` は、元のMyKeepのMITライセンスです。
+- `neoma/worker.mjs` には `AGPL-3.0-or-later` のSPDX表示があります。上流のライセンス条件を優先してください。全アプリを一律にMITとして再ライセンスしたものではありません。
+- このリポジトリは公開されています。設定済みの個人用リンクやLANアドレスがサンプル・初期データに含まれる場合があるので、Fork・共有時は確認してください。
+- Gmail連携の本人メールアドレスはCloudflareの `OWNER_EMAIL` シークレットへ移行し、ソースからは削除してあります。
