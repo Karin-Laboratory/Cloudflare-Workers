@@ -1,11 +1,17 @@
-name: Check MyKeep
+name: Validate Karin Workers
 on:
   push:
-    branches: [karin/sidebar-images-heading-click]
+    branches: [main]
+    paths:
+      - 'mykeep/**'
+      - 'notepad/**'
+      - '.github/workflows/check-mykeep.yml'
+  pull_request:
+    branches: [main]
 permissions:
   contents: read
 jobs:
-  check:
+  mykeep:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -13,7 +19,22 @@ jobs:
         with:
           node-version: '24'
           cache: npm
-      - run: npm ci
-      - run: npm run build
-      - run: npm install --no-save --package-lock=false esbuild
-      - run: node tests/pin-levels.mjs
+          cache-dependency-path: mykeep/package-lock.json
+      - name: Install dependencies
+        run: npm ci
+        working-directory: mykeep
+      - name: Build MyKeep
+        run: npm run build
+        working-directory: mykeep
+      - name: Run MyKeep checks
+        run: node tests/pin-levels.mjs
+        working-directory: mykeep
+  notepad:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Syntax-check Notepad Worker
+        run: node --check notepad/worker.js
