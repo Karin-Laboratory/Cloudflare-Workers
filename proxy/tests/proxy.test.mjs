@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {checkTarget, detectCharset, decodeResponseBody, decodeUrlEntities} from "../worker.js";
+import worker, {checkTarget, detectCharset, decodeResponseBody, decodeUrlEntities, isGoogleSearchGuard} from "../worker.js";
 test("public HTTPS hosts",()=>{
   assert.equal(checkTarget("example.com/a?b=1").href,"https://example.com/a?b=1");
   assert.equal(checkTarget("https://www.wikipedia.org/").origin,"https://www.wikipedia.org");
@@ -35,4 +35,36 @@ test("decode HTML-escaped ampersands in links before proxying",()=>{
   assert.equal(decodeUrlEntities("?hl=ja&amp;authuser=0"),"?hl=ja&authuser=0");
   assert.equal(decodeUrlEntities("?hl=ja&amp;amp;authuser=0"),"?hl=ja&authuser=0");
   assert.equal(decodeUrlEntities("?hl=ja&#38;authuser=0"),"?hl=ja&authuser=0");
+});
+
+test("Google search-guard detection is specific to Google search results",()=>{
+  const guard='<div id="java-com-google-gws-common-impl-searchguard-jslayout__broken-text"><a href="/search?q=test&amp;emsg=SG_REL">retry</a></div>';
+  assert.equal(isGoogleSearchGuard("https://www.google.com/search?q=test",guard),true);
+  assert.equal(isGoogleSearchGuard("https://www.google.com/?hl=ja",guard),false);
+  assert.equal(isGoogleSearchGuard("https://www.bing.com/search?q=test",guard),false);
+  assert.equal(isGoogleSearchGuard("https://www.google.com/search?q=test","<h1>Normal search results</h1>"),false);
+});
+test("Google guard returns helpful fallbacks with the original Japanese query",async()=>{
+  const originalFetch=globalThis.fetch;
+  const resultHTML='<html><body><div id="java-com-google-gws-common-impl-searchguard-jslayout__broken-text"><a href="/search?q=test&amp;emsg=SG_REL">retry</a></div></body></html>';
+  globalThis.fetch=async()=>new Response(resultHTML,{headers:{"content-type":"text/html; charset=utf-8"}});
+  try{
+    const google="https://www.google.com/search?q="+encodeURIComponent("東京都 中古PC")+"&hl=ja";
+    const res=await worker.fetch(new Request("https://proxy.karin-lab.com/view?url="+encodeURIComponent(google)));
+    const html=await res.text();
+    assert.equal(res.status,200);
+    assert.match(html,/Googleの検索結果を表示できません/);
+    assert.match(html,/東京都 中古PC/);
+    assert.match(html,/DuckDuckGoで検索/);
+    assert.match(html,/Bingで検索/);
+    assert.match(html,/html.duckduckgo.com/);
+    assert.match(html,/www.bing.com/);
+  }finally{globalThis.fetch=originalFetch}
+});
+test("Google homepage stays the default and the external-browser button is visible",async()=>{
+  const res=await worker.fetch(new Request("https://proxy.karin-lab.com/"));
+  const html=await res.text();
+  assert.match(html,/www.google.com\/\?hl=ja/);
+  assert.match(html,/id="external"/);
+  assert.match(html,/window.open/);
 });
