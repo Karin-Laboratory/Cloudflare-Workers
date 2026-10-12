@@ -55,6 +55,31 @@ export function decodeUrlEntities(value) {
   return current;
 }
 
+
+export function isGoogleSearchGuard(target,html) {
+  const url=target instanceof URL?target:new URL(target);
+  if(!/(^|\.)google\.(com|co\.jp)$/i.test(url.hostname)||url.pathname!=="/search")return false;
+  return /emsg\s*=\s*SG_REL|java-com-google-gws-common-impl-searchguard-jslayout__broken-text/i.test(html);
+}
+function blockedGoogleSearch(target) {
+  const q=target.searchParams.get("q")||"";
+  const duck=new URL("https://html.duckduckgo.com/html/");
+  duck.searchParams.set("q",q);
+  const bing=new URL("https://www.bing.com/search");
+  bing.searchParams.set("q",q);
+  bing.searchParams.set("setlang","ja");
+  const html='<!doctype html><html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>検索の続き</title>'+
+    '<style>body{font:15px/1.7 system-ui,"Segoe UI",sans-serif;background:#f7f9fc;color:#263448;margin:0;padding:clamp(18px,5vw,48px)}article{max-width:680px;margin:auto;padding:28px;border:1px solid #dde4ef;border-radius:16px;background:#fff}h1{font-size:22px;margin:0 0 8px}p{margin:10px 0 16px}.query{background:#f5f8fc;border:1px solid #e2e9f0;border-radius:8px;padding:10px 14px;overflow-wrap:anywhere}.buttons{display:flex;gap:10px;flex-wrap:wrap;margin:22px 0}.buttons a{display:inline-block;padding:11px 16px;border-radius:9px;background:#267de0;color:white;font-weight:600;text-decoration:none}.buttons a.secondary{color:#2a679e;background:#eaf4ff}.tip{font-size:13px;color:#63748a}</style></head><body><article>'+
+    '<h1>Googleの検索結果を表示できません</h1>'+
+    '<p>Googleがこのプロクシからの検索に確認ページを返しました。これは文字化けや検索語の問題とは別で、Google側の制限です。</p>'+
+    '<p>検索語</p><div class="query">'+escapeHtml(q||"(検索語なし)")+'</div>'+
+    '<div class="buttons"><a href="'+escapeHtml(linkFor(duck))+'">DuckDuckGoで検索</a>'+
+    '<a class="secondary" href="'+escapeHtml(linkFor(bing))+'">Bingで検索</a></div>'+
+    '<p class="tip">どちらもこのプロクシ内で開きます。Google本来の検索結果を見たいときは、上部の「↗」ボタンで通常のブラウザタブを開いてください。代替検索サイトも独自のアクセス制限がある場合があります。</p>'+
+    '</article></body></html>';
+  return new Response(html,{headers:{...COMMON,"Content-Type":"text/html; charset=utf-8","Content-Security-Policy":"default-src 'none'; style-src 'unsafe-inline'"}});
+}
+
 function linkFor(url,kind="view"){return "/"+kind+"?url="+encodeURIComponent(url.toString())}
 function resolveRemote(value,base){
   if(!value||/^(?:#|data:|javascript:|mailto:|tel:|blob:)/i.test(value.trim()))return null;
@@ -108,6 +133,17 @@ function bootstrap(remoteURL){
       event.preventDefault();
       try{
         const target=new URL(action.searchParams.get('url'));
+        if(/^([^.]+\.)?google\.(com|co\.jp)$/i.test(target.hostname) && (target.pathname==='/search'||form.querySelector('[name="q"]'))) {
+          const q=form.querySelector('[name="q"]');
+          if(q && typeof q.value==='string') {
+            const google=new URL('https://www.google.com/search');
+            google.searchParams.set('q',q.value);
+            google.searchParams.set('hl','ja');
+            google.searchParams.set('ie','UTF-8');
+            location.href='/view?url='+encodeURIComponent(google.href);
+            return;
+          }
+        }
         const fields=new FormData(form,event.submitter);
         for(const [key,value] of fields.entries())if(typeof value==='string')target.searchParams.append(key,value);
         location.href='/view?url='+encodeURIComponent(target.href);
@@ -129,6 +165,7 @@ function rewriterFor(target){
       if(el.hasAttribute("integrity"))el.removeAttribute("integrity");
       if((tag==="a"||tag==="area"||tag==="form")&&el.hasAttribute("target"))el.setAttribute("target","_self");
       if(tag==="form"&&!el.hasAttribute("action"))el.setAttribute("action",linkFor(target));
+      if(tag==="form"&&/(^|\.)google\.(com|co\.jp)$/i.test(target.hostname))el.setAttribute("accept-charset","UTF-8");
     }});
   }
   rw.on("base",{element(el){el.remove()}});
@@ -168,6 +205,7 @@ iframe{position:absolute;inset:0;width:100%;height:100%;border:0;background:whit
 <button class="nav" id="back" title="戻る" aria-label="戻る" disabled>‹</button>
 <button class="nav" id="forward" title="進む" aria-label="進む" disabled>›</button>
 <button class="nav" id="reload" title="再読み込み" aria-label="再読み込み">↻</button>
+<button class="nav" id="external" title="ブラウザで直接開く" aria-label="ブラウザで直接開く">↗</button>
 <form id="addressForm"><input id="address" type="url" inputmode="url" autocomplete="off" spellcheck="false" placeholder="https://example.com" aria-label="URLを入力" required><button class="go" type="submit">開く</button></form>
 </header><main><div id="welcome"><div><div style="font-size:38px;margin-bottom:10px">🌐</div><div style="font-size:19px;color:#465e76;font-weight:650">URLを入力してブラウジング</div><p>公開HTTPSサイトをプロクシ経由で表示します。<br>ログインが必要なサイトや高度なWebアプリは正常に動かない場合があります。</p></div></div>
 <iframe id="viewer" title="プロクシ閲覧画面" referrerpolicy="no-referrer" sandbox="allow-scripts allow-forms allow-downloads allow-popups"></iframe>
@@ -196,6 +234,7 @@ document.getElementById('addressForm').addEventListener('submit',e=>{e.preventDe
 back.addEventListener('click',()=>{if(position>0){position--;show(entries[position],false)}});
 forward.addEventListener('click',()=>{if(position<entries.length-1){position++;show(entries[position],false)}});
 reload.addEventListener('click',()=>{if(position>=0)show(entries[position],false)});
+document.getElementById('external').addEventListener('click',()=>{if(position>=0){const u=normalized(entries[position]);if(u)window.open(u,'_blank','noopener,noreferrer')}});
 viewer.addEventListener('load',()=>notice(''));
 addEventListener('message',event=>{
   if(event.source!==viewer.contentWindow||!event.data||event.data.kind!=='karin-proxy-navigation')return;
@@ -249,6 +288,7 @@ async function proxyRequest(request,kind){
     const bytes=await upstream.arrayBuffer();
     if(bytes.byteLength>10_000_000)return fail("HTMLが10MBを超えるため表示できません。",413);
     const html=decodeResponseBody(bytes,contentType);
+    if(isGoogleSearchGuard(target,html))return blockedGoogleSearch(target);
     return rewriterFor(target).transform(new Response(html,{status:upstream.status,headers:responseHeaders}));
   }
   if(/text\/css/i.test(contentType)){
