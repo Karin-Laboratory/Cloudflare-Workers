@@ -11,11 +11,16 @@ export default {
     if (request.method !== "GET" && request.method !== "HEAD") {
       return new Response("Method Not Allowed", { status: 405, headers: { Allow: "GET, HEAD" } });
     }
-    const response = await env.ASSETS.fetch(request);
+    const isWasm = url.pathname.endsWith(".wasm");
+    const assetRequest = isWasm
+      ? new Request(new URL(url.pathname + ".gz", request.url).toString(), request)
+      : request;
+    const response = await env.ASSETS.fetch(assetRequest);
     const headers = new Headers(response.headers);
     headers.set("X-Content-Type-Options", "nosniff");
     headers.set("Referrer-Policy", "no-referrer");
-    if (url.pathname.endsWith(".wasm")) {
+    if (isWasm) {
+      headers.set("Content-Encoding", "gzip");
       headers.set("Content-Type", "application/wasm");
       headers.set("Cache-Control", "public, max-age=31536000, immutable");
     } else if (/wordcraft-web-[a-f0-9]+\.js$/.test(url.pathname)) {
