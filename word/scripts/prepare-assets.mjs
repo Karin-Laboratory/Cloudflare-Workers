@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { gzipSync } from "node:zlib";
-import { mkdir, rm, writeFile } from "node:fs/promises";
+import { mkdir, rm, writeFile, readFile } from "node:fs/promises";
 import { resolve, dirname, relative, sep } from "node:path";
 import { unzipSync } from "fflate";
 
@@ -20,11 +20,21 @@ const entries = unzipSync(archive);
 await rm(destination, { recursive: true, force: true });
 await mkdir(destination, { recursive: true });
 const manifest = [];
+const wasmFilename = Object.keys(entries).find(name => name.startsWith(PREFIX) && name.endsWith(".wasm"))?.slice(PREFIX.length);
+if (!wasmFilename) throw new Error("Release archive has no WASM module");
 for (const [name, bytes] of Object.entries(entries)) {
   if (!name.startsWith(PREFIX) || name.endsWith("/")) continue;
   const suffix = name.slice(PREFIX.length);
   const storedName = suffix.endsWith(".wasm") ? suffix + ".gz" : suffix;
-  const data = suffix.endsWith(".wasm") ? gzipSync(bytes, { level: 9 }) : bytes;
+  let data = suffix.endsWith(".wasm") ? gzipSync(bytes, { level: 9 }) : bytes;
+  if (suffix === "index.html") {
+    let html = Buffer.from(data).toString("utf8");
+    if (!/<\\/head>/i.test(html)) throw new Error("Unexpected upstream HTML layout");
+    html = html.replace(/<\\/head>/i, '<script defer src="./startup-guard.js"></script></head>');
+    // Bust any previously cached broken WASM and JS response when updating this integration.
+    html = html.replace(/(wordcraft-web-[0-9a-f]+(?:_bg)?\\.(?:js|wasm))(?=["'])/g, "$1?karin=fix2");
+    data = Buffer.from(html);
+  }
   const out = resolve(destination, storedName);
   if (!suffix || suffix.startsWith("/") || suffix.includes("\\") || out === destination || !out.startsWith(destination + sep)) {
     throw new Error("Unsafe archive path: " + name);
@@ -35,6 +45,10 @@ for (const [name, bytes] of Object.entries(entries)) {
   await writeFile(out, data);
   manifest.push({ name: storedName, bytes: data.byteLength, originalBytes: bytes.byteLength });
 }
+const guardText = (await readFile(new URL("../startup-guard.js", import.meta.url), "utf8"))
+  .replace("__KARIN_WASM_URL__", wasmFilename + "?karin=fix2");
+await writeFile(resolve(destination, "startup-guard.js"), guardText, "utf8");
+manifest.push({ name: "startup-guard.js", bytes: Buffer.byteLength(guardText) });
 if (!manifest.some(x => x.name === "index.html") || !manifest.some(x => x.name.endsWith(".wasm.gz")) || !manifest.some(x => x.name.endsWith(".js"))) {
   throw new Error("Missing essential WordCraft Web assets");
 }
