@@ -2,13 +2,14 @@
 
 Cloudflare Workers で動かす Karin-Lab 個人開発アプリのソースコードを、ひとつの GitHub リポジトリで管理するためのモノレポです。
 
-## Cloudflare Worker 一覧（2026-10-11）
-以下の **13本すべて** を `main` の独立ディレクトリで管理します。Cloudflare Workers Builds は対応する `<folder>/**` の変更時だけその Worker をビルド・デプロイします。
+## Cloudflare Worker 一覧（2026-10-12）
+以下の **14本すべて** を `main` の独立ディレクトリで管理します。Cloudflare Workers Builds は対応する `<folder>/**` の変更時だけその Worker をビルド・デプロイします。
 
 | アプリ | Worker | 公開先 |
 |---|---|---|
 | [mykeep/](./mykeep/) | `mykeep` | `mykeep.karin-lab.com` |
 | [notepad/](./notepad/) | `karin-notepad` | `notepad.karin-lab.com` |
+| [excel/](./excel/) | `karin-excel` | `excel.karin-lab.com` |
 | [calendar/](./calendar/) | `karin-calendar` | `calendar.karin-lab.com` |
 | [discovery/](./discovery/) | `karin-discovery` | `discovery.karin-lab.com` |
 | [gmail/](./gmail/) | `karin-gmail-mirror` | `gmail.karin-lab.com` |
@@ -32,6 +33,7 @@ Cloudflare Workers で動かす Karin-Lab 個人開発アプリのソースコ�
 | --- | --- | --- |
 | [mykeep/](./mykeep/) | `mykeep` | Cloudflare Workers + D1 + R2 のメモ / PWA / Chrome拡張 |
 | [notepad/](./notepad/) | `karin-notepad` | Cloudflare Access + D1 + Durable Objectsのメモ帳 |
+| [excel/](./excel/) | `karin-excel` | Cloudflare Access + D1 の表計算Webアプリ（VBAなし） |
 
 Calendar、Portal、Museum、DiscoveryなどのWorkerもソース取込み済みです。Cloudflare Pagesプロジェクトは、2026-10-11時点の調査では0件でした。
 
@@ -47,6 +49,7 @@ Calendar、Portal、Museum、DiscoveryなどのWorkerもソース取込み済み
 
 - `mykeep/`: `npm ci`、`npm run build`、`node tests/pin-levels.mjs`、`npx wrangler deploy --keep-vars`。Cloudflare Workers Builds の root directory = `/mykeep`。
 - `notepad/`: `npm install`、`npm run check`、`npx wrangler deploy --dry-run`、`npx wrangler deploy --keep-vars`。Cloudflare Workers Buildsの root directory = `/notepad`、watch paths = `notepad/**`。
+- `excel/`: `npm install`、`npm run check`、`npx wrangler deploy --dry-run`、`npx wrangler deploy --keep-vars`。Cloudflare Workers Builds の root directory = `/excel`、watch paths = `excel/**`。
 
 **公開リポジトリ**です。Cloudflare Access のメールアドレス、APIキー、OTPやトークン、実データをコードに埋め込まないでください。D1/R2のIDと公開のデプロイ設定は機密ではありませんが、秘密情報はCloudflare側で管理してください。
 
