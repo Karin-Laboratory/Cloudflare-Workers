@@ -20,8 +20,8 @@ console.log("WordCraft release smoke test passed:", assets.length, "top-level en
  
 // Node integration smoke: reconstruct the same WASM bytes a browser receives.
 // Compare against Trunk's signed SHA384 preload integrity, not merely file size.
-const wasmName = chunks[0].replace(/\\.part0$/, "");
-const preloadTag = index.match(/<link[^>]+href="[^"]+\\.wasm(?:\\?[^"]*)?"[^>]*>/i)?.[0];
+const wasmName = chunks[0].replace(/\.part0$/, "");
+const preloadTag = index.match(/<link[^>]+href="[^"]+\.wasm(?:\\?[^"]*)?"[^>]*>/i)?.[0];
 assert(preloadTag, "Missing Trunk WASM preload tag");
 const integrity = preloadTag.match(/integrity="sha384-([^"]+)"/)?.[1];
 assert(integrity, "Missing Trunk WASM SHA384 integrity");
