@@ -13,3 +13,7 @@ database_id = "94fd8dcf-0bd5-4022-9f5f-7c741ede7cf6"
 type = "Text"
 globs = ["**/*.html", "**/*.css", "**/*.txt"]
 fallthrough = true
+
+[assets]
+directory = "./public"
+binding = "ASSETS"
