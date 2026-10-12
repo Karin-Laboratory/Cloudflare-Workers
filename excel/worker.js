@@ -4,6 +4,44 @@ import APP from "./app.txt";
 
 const json=(value,status=200)=>new Response(JSON.stringify(value),{status,headers:{"content-type":"application/json; charset=utf-8","cache-control":"no-store","x-content-type-options":"nosniff"}});
 const asset=(content,type)=>new Response(content,{headers:{"content-type":type,"cache-control":"no-cache","x-content-type-options":"nosniff"}});
+
+// Pin upstream sources; serve them from our own hostname so Chrome never has to contact a third-party CDN.
+const vendors={
+ "/vendor/xspreadsheet.css":{mime:"text/css; charset=utf-8",urls:[
+  "https://cdn.jsdelivr.net/npm/x-data-spreadsheet@1.1.5/dist/xspreadsheet.css",
+  "https://unpkg.com/x-data-spreadsheet@1.1.5/dist/xspreadsheet.css"
+ ]},
+ "/vendor/xspreadsheet.js":{mime:"application/javascript; charset=utf-8",urls:[
+  "https://cdn.jsdelivr.net/npm/x-data-spreadsheet@1.1.5/dist/xspreadsheet.js",
+  "https://unpkg.com/x-data-spreadsheet@1.1.5/dist/xspreadsheet.js"
+ ]},
+ "/vendor/xlsx.full.min.js":{mime:"application/javascript; charset=utf-8",urls:[
+  "https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"
+ ]}
+};
+async function vendor(req,path){
+ const spec=vendors[path];
+ const cache=caches.default;
+ const cached=await cache.match(req);
+ if(cached)return cached;
+ for(const url of spec.urls){
+  try{
+   const upstream=await fetch(url,{redirect:"follow"});
+   if(!upstream.ok)continue;
+   const content=await upstream.arrayBuffer();
+   if(!content.byteLength)continue;
+   const response=new Response(content,{status:200,headers:{
+    "content-type":spec.mime,
+    "cache-control":"public, max-age=86400",
+    "x-content-type-options":"nosniff"
+   }});
+   await cache.put(req,response.clone());
+   return response;
+  }catch(e){console.error("vendor asset error:",path,String(e));}
+ }
+ return new Response("Library temporarily unavailable",{status:503,headers:{"content-type":"text/plain; charset=utf-8","cache-control":"no-store"}});
+}
+
 const cleanName=s=>String(s||"新しいブック").trim().slice(0,100)||"新しいブック";
 const validId=id=>/^[a-f0-9-]{36}$/i.test(id||"");
 async function ready(env){
@@ -20,6 +58,7 @@ export default {
  async fetch(req,env){
   const url=new URL(req.url);
   if(req.method==="GET"){
+   if(Object.prototype.hasOwnProperty.call(vendors,url.pathname))return vendor(req,url.pathname);
    if(url.pathname==="/")return asset(HTML,"text/html; charset=utf-8");
    if(url.pathname==="/style.css")return asset(CSS,"text/css; charset=utf-8");
    if(url.pathname==="/app.js")return asset(APP,"application/javascript; charset=utf-8");
