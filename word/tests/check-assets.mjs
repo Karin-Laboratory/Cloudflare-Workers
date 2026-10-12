@@ -1,0 +1,11 @@
+import { readFile, readdir } from "node:fs/promises";
+import { join } from "node:path";
+import assert from "node:assert/strict";
+const dir = new URL("../public/", import.meta.url);
+const assets = await readdir(dir);
+const index = await readFile(new URL("index.html", dir), "utf8");
+assert.match(index, /WordCraft/i);
+assert(assets.some(x => /^wordcraft-web-.*\.js$/.test(x)), "Missing compiled JS");
+assert(assets.some(x => /^wordcraft-web-.*\.wasm$/.test(x)), "Missing compiled WASM");
+assert(!/(?:src|href)="\/[a-z]/i.test(index), "Index has root-absolute asset references");
+console.log("WordCraft release smoke test passed:", assets.length, "top-level entries");

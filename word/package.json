@@ -1,0 +1,16 @@
+{
+  "name": "karin-word",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "check": "node scripts/prepare-assets.mjs && node --check worker.js && node tests/check-assets.mjs",
+    "deploy": "wrangler deploy --keep-vars"
+  },
+  "dependencies": {
+    "fflate": "0.8.2"
+  },
+  "devDependencies": {
+    "wrangler": "^4.45.0"
+  }
+}

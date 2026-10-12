@@ -1,0 +1,39 @@
+import { createHash } from "node:crypto";
+import { mkdir, rm, writeFile } from "node:fs/promises";
+import { resolve, dirname, relative, sep } from "node:path";
+import { unzipSync } from "fflate";
+
+const VERSION = "0.5.0";
+const EXPECTED_SHA256 = "196d0070fec6572238298e211ac4a3ea0510b7a0ac8d6096a5ee59f2ff69f85d";
+const URL = `https://github.com/storytold/wordcraft/releases/download/v${VERSION}/wordcraft-web-${VERSION}.zip`;
+const PREFIX = `wordcraft-web-${VERSION}/`;
+const destination = resolve("public");
+console.log("Fetching pinned WordCraft Web release", VERSION);
+const response = await fetch(URL, { signal: AbortSignal.timeout(120000), headers: { "User-Agent": "Karin-Word-Cloudflare-Build/1.0" } });
+if (!response.ok) throw new Error(`Release download HTTP ${response.status}: ${URL}`);
+const archive = new Uint8Array(await response.arrayBuffer());
+if (archive.byteLength > 30_000_000) throw new Error("Unexpected oversized release archive");
+const digest = createHash("sha256").update(archive).digest("hex");
+if (digest !== EXPECTED_SHA256) throw new Error(`Release SHA256 mismatch: ${digest}`);
+const entries = unzipSync(archive);
+await rm(destination, { recursive: true, force: true });
+await mkdir(destination, { recursive: true });
+const manifest = [];
+for (const [name, bytes] of Object.entries(entries)) {
+  if (!name.startsWith(PREFIX) || name.endsWith("/")) continue;
+  const suffix = name.slice(PREFIX.length);
+  const out = resolve(destination, suffix);
+  if (!suffix || suffix.startsWith("/") || suffix.includes("\\") || out === destination || !out.startsWith(destination + sep)) {
+    throw new Error("Unsafe archive path: " + name);
+  }
+  // Do not serve upstream deployment docs, hidden server settings or licenses as app assets.
+  if (suffix.startsWith(".") || ["HOSTING.md", "_headers", "LICENSE-APACHE", "LICENSE-MIT"].includes(suffix)) continue;
+  await mkdir(dirname(out), { recursive: true });
+  await writeFile(out, bytes);
+  manifest.push({ name: suffix, bytes: bytes.byteLength });
+}
+if (!manifest.some(x => x.name === "index.html") || !manifest.some(x => x.name.endsWith(".wasm")) || !manifest.some(x => x.name.endsWith(".js"))) {
+  throw new Error("Missing essential WordCraft Web assets");
+}
+if (manifest.some(x => x.bytes > 24_000_000)) throw new Error("A single asset exceeds Cloudflare Workers Static Assets size allowance");
+console.log("WordCraft static assets prepared:", JSON.stringify(manifest));
