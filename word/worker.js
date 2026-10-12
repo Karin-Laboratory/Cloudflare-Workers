@@ -20,7 +20,7 @@ export default {
     // The stored asset is a .wasm.gz file (36 MB raw, 15 MB gzip).
     // Decompress the stream here, not in the browser: a mismatched
     // Content-Encoding / Content-Length can leave the Trunk app stuck loading.
-    let responseBody = responseBody;
+    let responseBody = request.method === "HEAD" ? null : response.body;
     if (isWasm && response.ok && responseBody) {
       responseBody = responseBody.pipeThrough(new DecompressionStream("gzip"));
       headers.delete("Content-Encoding");
@@ -38,7 +38,7 @@ export default {
     } else if (url.pathname === "/" || url.pathname === "/index.html") {
       headers.set("Cache-Control", "no-cache");
     }
-    return new Response(request.method === "HEAD" ? null : response.body, {
+    return new Response(responseBody, {
       status: response.status, statusText: response.statusText, headers
     });
   }
