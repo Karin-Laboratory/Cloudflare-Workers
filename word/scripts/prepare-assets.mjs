@@ -1,5 +1,4 @@
 import { createHash } from "node:crypto";
-import { gzipSync } from "node:zlib";
 import { mkdir, rm, writeFile, readFile } from "node:fs/promises";
 import { resolve, dirname, relative, sep } from "node:path";
 import { unzipSync } from "fflate";
@@ -25,17 +24,22 @@ if (!wasmFilename) throw new Error("Release archive has no WASM module");
 for (const [name, bytes] of Object.entries(entries)) {
   if (!name.startsWith(PREFIX) || name.endsWith("/")) continue;
   const suffix = name.slice(PREFIX.length);
-  const storedName = suffix.endsWith(".wasm") ? suffix + ".gz" : suffix;
-  let data = suffix.endsWith(".wasm") ? gzipSync(bytes, { level: 9 }) : bytes;
-  if (suffix === "index.html") {
-    let html = Buffer.from(data).toString("utf8");
-    console.log("UPSTREAM_WORDCRAFT_INDEX_BEGIN\\n" + html + "\\nUPSTREAM_WORDCRAFT_INDEX_END");
-    if (!html.includes("</head>")) throw new Error("Unexpected upstream HTML layout");
-    html = html.replace("</head>", '<script defer src="./startup-guard.js"></script></head>');
-    // Replace upstream bootstrap resource URLs to avoid previously cached bad responses.
-    html = html.replaceAll('.wasm"', '.wasm?karin=fix2"').replaceAll('.js"', '.js?karin=fix2"');
-    data = Buffer.from(html);
+  // Split the original uncompressed WASM into sub-25MB Cloudflare assets.
+  // A streamed byte-for-byte reconstruction preserves Trunk's SHA384 integrity.
+  if (suffix.endsWith(".wasm")) {
+    const chunkSize = 12_000_000;
+    const count = Math.ceil(bytes.byteLength / chunkSize);
+    if (count !== 4) throw new Error("Unexpected WordCraft WASM chunk count: " + count);
+    for (let i = 0; i < count; i++) {
+      const chunk = bytes.subarray(i * chunkSize, Math.min((i + 1) * chunkSize, bytes.byteLength));
+      const chunkName = suffix + ".part" + i;
+      await writeFile(resolve(destination, chunkName), chunk);
+      manifest.push({ name: chunkName, bytes: chunk.byteLength });
+    }
+    continue;
   }
+  const storedName = suffix;
+  const data = bytes;
   const out = resolve(destination, storedName);
   if (!suffix || suffix.startsWith("/") || suffix.includes("\\") || out === destination || !out.startsWith(destination + sep)) {
     throw new Error("Unsafe archive path: " + name);
@@ -47,10 +51,10 @@ for (const [name, bytes] of Object.entries(entries)) {
   manifest.push({ name: storedName, bytes: data.byteLength, originalBytes: bytes.byteLength });
 }
 const guardText = (await readFile(new URL("../startup-guard.js", import.meta.url), "utf8"))
-  .replace("__KARIN_WASM_URL__", wasmFilename + "?karin=fix2");
+  .replace("__KARIN_WASM_URL__", wasmFilename + "?karin=parts3");
 await writeFile(resolve(destination, "startup-guard.js"), guardText, "utf8");
 manifest.push({ name: "startup-guard.js", bytes: Buffer.byteLength(guardText) });
-if (!manifest.some(x => x.name === "index.html") || !manifest.some(x => x.name.endsWith(".wasm.gz")) || !manifest.some(x => x.name.endsWith(".js"))) {
+if (!manifest.some(x => x.name === "index.html") || !manifest.some(x => x.name.endsWith(".wasm.part0")) || !manifest.some(x => x.name.endsWith(".js"))) {
   throw new Error("Missing essential WordCraft Web assets");
 }
 if (manifest.some(x => x.bytes > 24_000_000)) throw new Error("A single asset exceeds Cloudflare Workers Static Assets size allowance");
