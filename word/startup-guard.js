@@ -2,6 +2,7 @@
 // It does not send document contents or telemetry anywhere.
 (() => {
   const errors = [];
+  const wasmUrl = "__KARIN_WASM_URL__";
   const record = (value) => {
     const message = String(value ?? "Unknown startup error").slice(0, 350);
     if (message && errors.length < 6) errors.push(message);
@@ -40,9 +41,8 @@
     tryGL.style.cssText = "display:inline-block;padding:10px 18px;border-radius:8px;background:#275fa5;color:white;font:600 14px system-ui;text-decoration:none;";
     loading.append(tryGL);
     try {
-      const wasm = document.querySelector('link[rel="preload"][as="fetch"][href*=".wasm"],link[href*=".wasm"]');
-      if (wasm) {
-        const response = await fetch(wasm.href, { method: "HEAD", cache: "no-store" });
+      if (wasmUrl.startsWith("wordcraft-web-")) {
+        const response = await fetch(new URL(wasmUrl, location.href), { method: "HEAD", cache: "no-store" });
         const status = document.createElement("small");
         status.textContent = "WASM: HTTP " + response.status + " / " + response.headers.get("content-type");
         loading.append(status);
