@@ -17,10 +17,19 @@ export default {
       : request;
     const response = await env.ASSETS.fetch(assetRequest);
     const headers = new Headers(response.headers);
+    // The stored asset is a .wasm.gz file (36 MB raw, 15 MB gzip).
+    // Decompress the stream here, not in the browser: a mismatched
+    // Content-Encoding / Content-Length can leave the Trunk app stuck loading.
+    let responseBody = responseBody;
+    if (isWasm && response.ok && responseBody) {
+      responseBody = responseBody.pipeThrough(new DecompressionStream("gzip"));
+      headers.delete("Content-Encoding");
+      headers.delete("Content-Length");
+      headers.delete("ETag");
+    }
     headers.set("X-Content-Type-Options", "nosniff");
     headers.set("Referrer-Policy", "no-referrer");
     if (isWasm) {
-      headers.set("Content-Encoding", "gzip");
       headers.set("Content-Type", "application/wasm");
       headers.set("Cache-Control", "public, max-age=31536000, immutable");
     } else if (/wordcraft-web-[a-f0-9]+\.js$/.test(url.pathname)) {
