@@ -1,0 +1,11 @@
+{
+  "name": "karin-proxy",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "check": "node --check worker.js && node --test tests/*.test.mjs"
+  },
+  "devDependencies": {
+    "wrangler": "^4.142.0"
+  }
+}
