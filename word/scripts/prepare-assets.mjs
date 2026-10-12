@@ -29,10 +29,10 @@ for (const [name, bytes] of Object.entries(entries)) {
   let data = suffix.endsWith(".wasm") ? gzipSync(bytes, { level: 9 }) : bytes;
   if (suffix === "index.html") {
     let html = Buffer.from(data).toString("utf8");
-    if (!/<\\/head>/i.test(html)) throw new Error("Unexpected upstream HTML layout");
-    html = html.replace(/<\\/head>/i, '<script defer src="./startup-guard.js"></script></head>');
-    // Bust any previously cached broken WASM and JS response when updating this integration.
-    html = html.replace(/(wordcraft-web-[0-9a-f]+(?:_bg)?\\.(?:js|wasm))(?=["'])/g, "$1?karin=fix2");
+    if (!html.includes("</head>")) throw new Error("Unexpected upstream HTML layout");
+    html = html.replace("</head>", '<script defer src="./startup-guard.js"></script></head>');
+    // Replace upstream bootstrap resource URLs to avoid previously cached bad responses.
+    html = html.replaceAll('.wasm"', '.wasm?karin=fix2"').replaceAll('.js"', '.js?karin=fix2"');
     data = Buffer.from(html);
   }
   const out = resolve(destination, storedName);
