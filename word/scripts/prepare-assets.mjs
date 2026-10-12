@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { gzipSync } from "node:zlib";
 import { mkdir, rm, writeFile } from "node:fs/promises";
 import { resolve, dirname, relative, sep } from "node:path";
 import { unzipSync } from "fflate";
@@ -22,17 +23,19 @@ const manifest = [];
 for (const [name, bytes] of Object.entries(entries)) {
   if (!name.startsWith(PREFIX) || name.endsWith("/")) continue;
   const suffix = name.slice(PREFIX.length);
-  const out = resolve(destination, suffix);
+  const storedName = suffix.endsWith(".wasm") ? suffix + ".gz" : suffix;
+  const data = suffix.endsWith(".wasm") ? gzipSync(bytes, { level: 9 }) : bytes;
+  const out = resolve(destination, storedName);
   if (!suffix || suffix.startsWith("/") || suffix.includes("\\") || out === destination || !out.startsWith(destination + sep)) {
     throw new Error("Unsafe archive path: " + name);
   }
   // Do not serve upstream deployment docs, hidden server settings or licenses as app assets.
   if (suffix.startsWith(".") || ["HOSTING.md", "_headers", "LICENSE-APACHE", "LICENSE-MIT"].includes(suffix)) continue;
   await mkdir(dirname(out), { recursive: true });
-  await writeFile(out, bytes);
-  manifest.push({ name: suffix, bytes: bytes.byteLength });
+  await writeFile(out, data);
+  manifest.push({ name: storedName, bytes: data.byteLength, originalBytes: bytes.byteLength });
 }
-if (!manifest.some(x => x.name === "index.html") || !manifest.some(x => x.name.endsWith(".wasm")) || !manifest.some(x => x.name.endsWith(".js"))) {
+if (!manifest.some(x => x.name === "index.html") || !manifest.some(x => x.name.endsWith(".wasm.gz")) || !manifest.some(x => x.name.endsWith(".js"))) {
   throw new Error("Missing essential WordCraft Web assets");
 }
 if (manifest.some(x => x.bytes > 24_000_000)) throw new Error("A single asset exceeds Cloudflare Workers Static Assets size allowance");
