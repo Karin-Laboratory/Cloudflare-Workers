@@ -39,7 +39,20 @@ for (const [name, bytes] of Object.entries(entries)) {
     continue;
   }
   const storedName = suffix;
-  const data = bytes;
+  let data = bytes;
+  if (suffix === "index.html") {
+    let html = Buffer.from(data).toString("utf8");
+    if (!html.includes("</head>") || !html.includes("module_or_path")) {
+      throw new Error("Unexpected WordCraft Trunk bootstrap HTML");
+    }
+    html = html.replace("</head>", '<script defer src="./startup-guard.js"></script></head>');
+    const bust = "?karin=parts3";
+    for (const ext of [".js", ".wasm"]) {
+      html = html.replaceAll(ext + "'", ext + bust + "'");
+      html = html.replaceAll(ext + '"', ext + bust + '"');
+    }
+    data = Buffer.from(html);
+  }
   const out = resolve(destination, storedName);
   if (!suffix || suffix.startsWith("/") || suffix.includes("\\") || out === destination || !out.startsWith(destination + sep)) {
     throw new Error("Unsafe archive path: " + name);
