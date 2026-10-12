@@ -35,7 +35,7 @@ async function vendor(req,path){
     "cache-control":"public, max-age=86400",
     "x-content-type-options":"nosniff"
    }});
-   await cache.put(req,response.clone());
+   try{await cache.put(req,response.clone());}catch(e){console.warn("vendor cache unavailable:",String(e));}
    return response;
   }catch(e){console.error("vendor asset error:",path,String(e));}
  }
