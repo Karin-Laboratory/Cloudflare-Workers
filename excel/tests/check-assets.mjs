@@ -1,0 +1,17 @@
+import assert from "node:assert/strict";
+import {readFile,readdir} from "node:fs/promises";
+import {gunzipSync} from "node:zlib";
+const dir=new URL("../public/",import.meta.url);
+const files=await readdir(dir);
+const html=await readFile(new URL("index.html",dir),"utf8");
+assert.match(html,/GridCraft/i);
+assert(!/(?:src|href)="\/[^/]/i.test(html),"Unexpected root-absolute asset URL");
+const js=files.find(x=>/^gridcraft-web-.*\.js$/.test(x));
+const wasm=files.find(x=>/^gridcraft-web-.*\.wasm\.gz$/.test(x));
+assert(js,"Missing JavaScript module");
+assert(wasm,"Missing WebAssembly module");
+assert(html.includes(js),"HTML bootstrap doesn't refer to JavaScript");
+const data=gunzipSync(await readFile(new URL(wasm,dir)));
+assert.equal(data.subarray(0,4).toString("hex"),"0061736d","Invalid WebAssembly magic");
+assert(data.length>100000,"WebAssembly bundle too small");
+console.log("GridCraft smoke tests passed",{js,wasm,wasmBytes:data.length});

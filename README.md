@@ -35,7 +35,7 @@ Cloudflare Workers で動かす Karin-Lab 個人開発アプリのソースコ�
 | --- | --- | --- |
 | [mykeep/](./mykeep/) | `mykeep` | Cloudflare Workers + D1 + R2 のメモ / PWA / Chrome拡張 |
 | [notepad/](./notepad/) | `karin-notepad` | Cloudflare Access + D1 + Durable Objectsのメモ帳 |
-| [excel/](./excel/) | `karin-excel` | Cloudflare Access + D1 の表計算Webアプリ（VBAなし） |
+| [excel/](./excel/) | `karin-excel` | Cloudflare Access + GridCraft WebAssembly（旧D1保管） |
 
 Calendar、Portal、Museum、DiscoveryなどのWorkerもソース取込み済みです。Cloudflare Pagesプロジェクトは、2026-10-11時点の調査では0件でした。
 
@@ -64,3 +64,7 @@ Calendar、Portal、Museum、DiscoveryなどのWorkerもソース取込み済み
 - `neoma/worker.mjs` には `AGPL-3.0-or-later` のSPDX表示があります。上流のライセンス条件を優先してください。全アプリを一律にMITとして再ライセンスしたものではありません。
 - このリポジトリは公開されています。設定済みの個人用リンクやLANアドレスがサンプル・初期データに含まれる場合があるので、Fork・共有時は確認してください。
 - Gmail連携の本人メールアドレスはCloudflareの `OWNER_EMAIL` シークレットへ移行し、ソースからは削除してあります。
+
+## GridCraft
+
+2026-10-12: `excel/` は GridCraft 0.5.0 公式WebAssembly版へ置換。前の Excel クローンのソースは `archive-excel-20261012` ブランチ、ブックの D1 データは残します。新しい GridCraft の保存はファイルダウンロード式です。

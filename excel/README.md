@@ -1,17 +1,19 @@
-# Karin Excel
+# Karin GridCraft
 
-Cloudflare Workers + D1 に保存する、Karin-Lab専用Web表計算エディター。
+The authentic open-source **GridCraft 0.5.0** (Rust / WebAssembly spreadsheet) at https://excel.karin-lab.com/ replaces the previous Karin Excel clone.
 
-- Excel風UI: x-spreadsheet 1.1.5（MIT）
-- XLSX/CSV入出力: SheetJS Community Edition 0.20.3（Apache-2.0）
-- 表計算数式、セル書式、複数シート、元に戻す、セルのコピー貼り付け等
-- 複数ブック、D1への1.5秒後自動保存、Ctrl+S、楽観ロック、失敗時のlocalStorage一時保管
-- Cloudflare Access「Owner only」、セッション30日で本人限定
-- VBA、マクロ、ピボット、Excel高度な機能の完全互換なし。XLSX書き出しでは一部の書式は非対応。
-- SheetJS 0.20.3 はビルド時に公式配布パッケージからローカル静的アセットへ展開し、Cloudflare Workers Static Assetsで自サイト配信。ブラウザの外部CDN接続は不要（x-spreadsheetはWorker経由キャッシュ配信）。
+- Upstream: https://github.com/storytold/gridcraft (MIT OR Apache-2.0).
+- Official web archive: https://github.com/storytold/gridcraft/releases/tag/v0.5.0 .
+- Cloudflare Workers Builds downloads the exact pinned release and verifies its SHA256 before deploying.
+- Self-hosted JavaScript and WASM. WASM is stored as gzip, then decompressed at the Worker edge to meet Cloudflare static asset limits and return application/wasm.
+- XLSX and CSV/TSV, formulas, sheets, charts and samples are provided by upstream.
+- **Important:** GridCraft saves locally through the browser download dialog. It does not support the old Karin Excel cloud auto-save or D1 workbook browser.
+- The existing D1 database karin-excel is NOT deleted and keeps historical workbook data for recovery. The new Worker does not bind to it.
+- Cloudflare Access and the custom domain are preserved.
+- Old source snapshot: branch archive-excel-20261012.
+- Workers Builds root: /excel, watch path: excel/**, branch: main.
+- Check: npm install --no-audit --no-fund && npm run check && npx wrangler deploy --dry-run
+- Deploy: npx wrangler deploy --keep-vars
+- Smoke test: /healthz and sample workbook, open an XLSX and export it again in a real browser.
 
-デプロイ：`npm install && npm run check && npx wrangler deploy`（ルートディレクトリ `excel`）。
-Cloudflare Workers Builds: GitHub `Karin-Laboratory/Cloudflare-Workers` の `main` / root `excel` / watch path `excel/**`。
-
-D1データベース名は `karin-excel`。DBを再作成せずにバインド維持。
-公開リポジトリのため個人データや秘密情報は保存しない。
+This integration retains upstream licenses and branding. GridCraft is pre-alpha; keep backups of important workbooks.

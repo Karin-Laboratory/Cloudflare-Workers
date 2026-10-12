@@ -1,16 +1,16 @@
 {
-  "name": "karin-excel",
-  "version": "0.1.0",
+  "name": "karin-gridcraft",
+  "version": "0.5.0",
   "private": true,
   "type": "module",
   "scripts": {
-    "check": "node scripts/prepare-assets.mjs && node --check worker.js && node --check --input-type=commonjs < app.txt && node tests/smoke.mjs",
+    "check": "node scripts/prepare-assets.mjs && node --check worker.js && node tests/check-assets.mjs",
     "deploy": "wrangler deploy --keep-vars"
+  },
+  "dependencies": {
+    "fflate": "0.8.2"
   },
   "devDependencies": {
     "wrangler": "^4.142.0"
-  },
-  "dependencies": {
-    "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz"
   }
 }
