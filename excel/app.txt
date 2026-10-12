@@ -65,10 +65,10 @@ async function flush(){
  return await saveBook(true);
 }
 function installGrid(data){
- if(!window.x||typeof window.x.spreadsheet!=="function")throw new Error("表計算ライブラリの読込に失敗しました");
+ if(typeof window.x_spreadsheet!=="function")throw new Error("表計算エンジンを読み込めません。ページを再読み込みしてください。");
  loading=true;
  if(!grid){
-  grid=window.x.spreadsheet("#spreadsheet",{
+  grid=window.x_spreadsheet("#spreadsheet",{
    showToolbar:true,showGrid:true,showContextmenu:true,showBottomBar:true,
    view:{height:()=>Math.max(300,el("spreadsheet-wrap").clientHeight-2),width:()=>Math.max(640,el("spreadsheet-wrap").clientWidth-2)},
    row:{len:300,height:25},col:{len:52,width:110},
@@ -178,6 +178,7 @@ function toXlsx(){
 }
 async function importFile(file){
  if(!file)return;
+ if(!window.XLSX){notify("Excel変換ライブラリを読み込めません。ページを再読み込みしてください。","error");return;}
  if(file.size>5*1024*1024){notify("5MBを超えるファイルは読み込めません","error");return;}
  if(!book||!(await flush()))return;
  try{
@@ -217,7 +218,7 @@ window.addEventListener("beforeunload",e=>{if(dirty){draft();e.preventDefault();
 window.addEventListener("online",()=>{if(dirty)saveBook(false);});
 async function init(){
  try{
-  if(!window.x||!window.XLSX)throw new Error("外部ライブラリの読込に失敗しました。通信環境を確認してください。");
+  if(typeof window.x_spreadsheet!=="function")throw new Error("表計算エンジンが読み込まれていません。ページを再読み込みしてください。");
   await refreshList();
   if(bookList.length)await openBook(bookList[0].id);else await createEmptyAutomatically();
  }catch(e){notify("起動できません: "+e.message,"error");$.loading.textContent="起動できません: "+e.message;}
