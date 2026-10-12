@@ -29,6 +29,7 @@ for (const [name, bytes] of Object.entries(entries)) {
   let data = suffix.endsWith(".wasm") ? gzipSync(bytes, { level: 9 }) : bytes;
   if (suffix === "index.html") {
     let html = Buffer.from(data).toString("utf8");
+    console.log("UPSTREAM_WORDCRAFT_INDEX_BEGIN\\n" + html + "\\nUPSTREAM_WORDCRAFT_INDEX_END");
     if (!html.includes("</head>")) throw new Error("Unexpected upstream HTML layout");
     html = html.replace("</head>", '<script defer src="./startup-guard.js"></script></head>');
     // Replace upstream bootstrap resource URLs to avoid previously cached bad responses.
