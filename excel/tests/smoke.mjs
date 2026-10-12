@@ -11,4 +11,7 @@ for(const path of ["/vendor/xspreadsheet.js","/vendor/xspreadsheet.css","/vendor
   assert.ok(worker.includes('"' +path+ '"'),"Missing Worker vendor route: "+path);
 }
 assert.match(worker,/if\(Object\.prototype\.hasOwnProperty\.call\(vendors,url\.pathname\)\)return vendor\(req,url\.pathname\)/,"Vendor requests must be served by Worker");
-console.log("Karin Excel smoke checks passed");
+import { statSync } from "node:fs";
+const size=statSync(new URL("../public/vendor/xlsx.full.min.js",import.meta.url)).size;
+assert.ok(size > 300_000, "Locally bundled SheetJS file must exist");
+console.log("Karin Excel smoke checks passed; SheetJS bytes:",size);
