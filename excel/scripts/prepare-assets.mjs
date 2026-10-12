@@ -1,0 +1,11 @@
+import { copyFileSync, mkdirSync, statSync } from "node:fs";
+import { resolve } from "node:path";
+const base = new URL("../", import.meta.url);
+const from = new URL("../node_modules/xlsx/dist/xlsx.full.min.js", import.meta.url);
+const dir = new URL("../public/vendor/", import.meta.url);
+mkdirSync(dir, { recursive: true });
+copyFileSync(from, new URL("xlsx.full.min.js", dir));
+const output = new URL("xlsx.full.min.js", dir);
+const size = statSync(output).size;
+if (size < 300_000) throw new Error("SheetJS standalone bundle unexpectedly small: " + size);
+console.log("Prepared local SheetJS browser asset:", size, "bytes");
