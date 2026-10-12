@@ -1,0 +1,226 @@
+/* Karin Excel client: x-spreadsheet (MIT), SheetJS CE (Apache-2.0) */
+(function(){
+"use strict";
+const el=id=>document.getElementById(id);
+const $={books:el("books"),state:el("state"),save:el("save"),loading:el("loading"),input:el("file")};
+let grid=null,book=null,bookList=[],dirty=false,busy=false,serial=0,timer=0,loading=false;
+const DRAFT_KEY="karin-excel-draft-v1";
+const emptySheet=()=>[{name:"Sheet1",rows:{len:300,cells:{}},cols:{len:52},merges:[],freeze:"A1",styles:[]}];
+const clone=x=>JSON.parse(JSON.stringify(x));
+const notify=(text,kind="")=>{$.state.textContent=text;$.state.className=kind;};
+const api=async(path,method="GET",body)=>{
+ const r=await fetch(path,{method,headers:body?{"Content-Type":"application/json"}:{},body:body?JSON.stringify(body):undefined,credentials:"same-origin",cache:"no-store"});
+ let data={};try{data=await r.json();}catch(_){}
+ if(!r.ok){const e=new Error(data.error||"通信に失敗しました ("+r.status+")");e.status=r.status;throw e;}return data;
+};
+const basename=s=>String(s||"新しいブック").trim().slice(0,100)||"新しいブック";
+const filename=s=>basename(s).replace(/[\\/:*?"<>|]/g,"_");
+const currentData=()=>grid?clone(grid.getData()):emptySheet();
+const draft=()=>{
+ if(!book)return;
+ try{localStorage.setItem(DRAFT_KEY,JSON.stringify({id:book.id,version:book.version,name:book.name,data:currentData(),at:Date.now()}));}
+ catch(e){notify("端末のバックアップ容量が不足しています","error");}
+};
+const removeDraft=id=>{
+ try{const x=JSON.parse(localStorage.getItem(DRAFT_KEY)||"null");if(x&&x.id===id)localStorage.removeItem(DRAFT_KEY);}catch(_){}
+};
+function changed(){
+ if(loading||!book)return;
+ dirty=true;serial++;draft();notify("未保存の変更があります","busy");clearTimeout(timer);
+ timer=setTimeout(()=>saveBook(false),1500);
+}
+function updateBooks(){
+ const old=$.books.value;$.books.replaceChildren();
+ for(const x of bookList){const o=document.createElement("option");o.value=x.id;o.textContent=x.name;$.books.append(o);}
+ $.books.value=book?book.id:old;
+}
+async function refreshList(){
+ const r=await api("/api/books");bookList=r.items||[];updateBooks();
+}
+async function saveBook(manual=false){
+ if(!book||busy)return false;
+ if(!dirty){if(manual)notify("すべて保存済み","ok");return true;}
+ clearTimeout(timer);busy=true;notify("クラウドへ保存中…","busy");$.save.disabled=true;
+ const stamp=serial,id=book.id,version=book.version,data=currentData(),name=book.name;
+ try{
+  const result=await api("/api/books/"+encodeURIComponent(id),"PUT",{name,data,version});
+  if(book&&book.id===id){book.version=result.version;book.updated_at=result.updated_at;
+   const item=bookList.find(x=>x.id===id);if(item){item.name=name;item.updated_at=result.updated_at;}
+   updateBooks();
+   if(serial===stamp){dirty=false;removeDraft(id);notify("クラウドに保存済み ✓","ok");}
+   else{notify("追加変更を保存中…","busy");draft();}
+  }
+  return true;
+ }catch(e){
+  if(e.status===409)notify("別の端末で更新されました。再読み込みが必要です","error");
+  else notify("保存エラー: "+e.message+"（端末に一時保管中）","error");
+  return false;
+ }finally{
+  busy=false;$.save.disabled=false;
+  if(dirty&&book&&book.id===id&&serial!==stamp)timer=setTimeout(()=>saveBook(false),800);
+ }
+}
+async function flush(){
+ clearTimeout(timer);if(busy){notify("保存完了を確認してから操作してください","busy");return false;}
+ return await saveBook(true);
+}
+function installGrid(data){
+ if(!window.x||typeof window.x.spreadsheet!=="function")throw new Error("表計算ライブラリの読込に失敗しました");
+ loading=true;
+ if(!grid){
+  grid=window.x.spreadsheet("#spreadsheet",{
+   showToolbar:true,showGrid:true,showContextmenu:true,showBottomBar:true,
+   view:{height:()=>Math.max(300,el("spreadsheet-wrap").clientHeight-2),width:()=>Math.max(640,el("spreadsheet-wrap").clientWidth-2)},
+   row:{len:300,height:25},col:{len:52,width:110},
+   style:{bgcolor:"#ffffff",align:"left",valign:"middle",textwrap:false,strike:false,underline:false,color:"#222222",font:{name:"Arial",size:11,bold:false,italic:false}}
+  });
+  grid.change(changed);
+ }
+ grid.loadData(Array.isArray(data)&&data.length?data:emptySheet());
+ loading=false;$.loading.hidden=true;
+}
+async function openBook(id){
+ if(book&&book.id===id)return;
+ if(book&&!(await flush()))return;
+ notify("ブックを読み込み中…","busy");
+ try{
+  const remote=await api("/api/books/"+encodeURIComponent(id));
+  let data=remote.data;
+  try{
+   const old=JSON.parse(localStorage.getItem(DRAFT_KEY)||"null");
+   if(old&&old.id===id&&old.data&&Array.isArray(old.data)){
+    const same=old.version===remote.version;
+    const promptText=same?"前回の未送信編集が残っています。復元しますか？":"この端末に別の版の未送信編集が残っています。クラウドの版を使わず復元しますか？";
+    if(confirm(promptText)){data=old.data;dirty=true;serial++;}else removeDraft(id);
+   }else dirty=false;
+  }catch(_){dirty=false;}
+  book={id:remote.id,name:remote.name,version:remote.version,updated_at:remote.updated_at};
+  installGrid(data);
+  updateBooks();document.title=book.name+" | Karin Excel";
+  if(dirty){draft();notify("復元した編集が未保存です","busy");timer=setTimeout(()=>saveBook(false),1200);}
+  else notify("クラウドに保存済み ✓","ok");
+ }catch(e){notify("読み込みエラー: "+e.message,"error");$.loading.textContent="読み込みに失敗しました。再読み込みしてください。";$.loading.hidden=false;}
+}
+async function createBook(){
+ if(book&&!(await flush()))return;
+ const name=prompt("新しいブックの名前","新しいブック");
+ if(name===null)return;
+ try{
+  const r=await api("/api/books","POST",{name:basename(name),data:emptySheet()});
+  await refreshList();book=null;dirty=false;await openBook(r.id);
+ }catch(e){notify("作成失敗: "+e.message,"error");}
+}
+async function renameBook(){
+ if(!book||!(await flush()))return;
+ const name=prompt("ブック名を変更",book.name);
+ if(name===null)return;
+ const updated=basename(name);if(updated===book.name)return;
+ book.name=updated;dirty=true;serial++;draft();await saveBook(true);
+}
+async function deleteBook(){
+ if(!book)return;
+ const n=book.name;
+ if(!confirm("「"+n+"」をクラウドから完全に削除します。よろしいですか？"))return;
+ try{
+  const id=book.id;await api("/api/books/"+encodeURIComponent(id),"DELETE");removeDraft(id);
+  book=null;dirty=false;clearTimeout(timer);await refreshList();
+  if(bookList.length)await openBook(bookList[0].id);else await createEmptyAutomatically();
+  notify("「"+n+"」を削除しました","ok");
+ }catch(e){notify("削除できません: "+e.message,"error");}
+}
+async function createEmptyAutomatically(){
+ const r=await api("/api/books","POST",{name:"新しいブック",data:emptySheet()});
+ await refreshList();book=null;dirty=false;await openBook(r.id);
+}
+function fromXlsx(wb){
+ const out=[];
+ for(const name of wb.SheetNames.slice(0,30)){
+  const ws=wb.Sheets[name],rows={len:300,cells:{}},cols={len:52};
+  let count=0;
+  for(const [address,v] of Object.entries(ws)){
+   if(address.startsWith("!")||!v||typeof v!=="object")continue;
+   let cell;try{cell=XLSX.utils.decode_cell(address);}catch(_){continue;}
+   if(cell.r>=3000||cell.c>=150)continue;
+   const value=v.f?"="+v.f:(v.v==null?"":String(v.v));
+   if(value==="")continue;
+   if(!rows.cells[cell.r])rows.cells[cell.r]={cells:{}};
+   rows.cells[cell.r].cells[cell.c]={text:value};count++;
+  }
+  if(ws["!ref"]){try{const rg=XLSX.utils.decode_range(ws["!ref"]);rows.len=Math.max(300,Math.min(3000,rg.e.r+1));cols.len=Math.max(52,Math.min(150,rg.e.c+1));}catch(_){}}
+  const merges=(ws["!merges"]||[]).map(m=>XLSX.utils.encode_range(m));
+  out.push({name:name||"Sheet"+(out.length+1),rows,cols,merges,freeze:"A1",styles:[]});
+ }
+ return out.length?out:emptySheet();
+}
+function toXlsx(){
+ if(!window.XLSX)throw new Error("Excelファイル変換ライブラリが読み込まれていません");
+ const out=XLSX.utils.book_new();
+ let index=0;
+ for(const sheet of currentData()){
+  const ws={};let maxR=0,maxC=0,any=false;
+  for(const [r,row] of Object.entries(sheet.rows?.cells||{})){
+   for(const [c,cell] of Object.entries(row.cells||{})){
+    const text=String(cell?.text??"");if(!text)continue;
+    const addr=XLSX.utils.encode_cell({r:Number(r),c:Number(c)});
+    if(text.startsWith("=")&&text.length>1)ws[addr]={t:"n",f:text.slice(1)};
+    else if(/^-?(?:\d+\.?\d*|\.\d+)(?:[eE][-+]?\d+)?$/.test(text)&&!/^0\d/.test(text))ws[addr]={t:"n",v:Number(text)};
+    else ws[addr]={t:"s",v:text};
+    maxR=Math.max(maxR,Number(r));maxC=Math.max(maxC,Number(c));any=true;
+   }
+  }
+  ws["!ref"]=XLSX.utils.encode_range({s:{r:0,c:0},e:{r:maxR,c:maxC}});
+  if(sheet.merges?.length){ws["!merges"]=sheet.merges.map(x=>{try{return XLSX.utils.decode_range(x);}catch(_){return null;}}).filter(Boolean);}
+  let name=String(sheet.name||"Sheet"+(++index)).replace(/[\\/?*\[\]:]/g,"_").slice(0,31)||"Sheet";
+  while(out.SheetNames.includes(name))name=(name.slice(0,27)+"_"+(++index)).slice(0,31);
+  XLSX.utils.book_append_sheet(out,ws,name);
+ }
+ return out;
+}
+async function importFile(file){
+ if(!file)return;
+ if(file.size>5*1024*1024){notify("5MBを超えるファイルは読み込めません","error");return;}
+ if(!book||!(await flush()))return;
+ try{
+  notify("ファイルを読み込み中…","busy");
+  const buf=await file.arrayBuffer();
+  const wb=XLSX.read(buf,{type:"array",cellFormula:true,cellDates:false});
+  const data=fromXlsx(wb);
+  if(!confirm("「"+book.name+"」の内容を読み込み結果で置き換えます。続行しますか？")){notify("読み込みをキャンセルしました","ok");return;}
+  installGrid(data);dirty=true;serial++;draft();await saveBook(true);
+  notify(file.name+" を読み込みました","ok");
+ }catch(e){notify("読み込み失敗: "+e.message,"error");}
+}
+function exportExcel(){
+ if(!book)return;
+ try{XLSX.writeFile(toXlsx(),filename(book.name)+".xlsx",{compression:true});notify("Excelファイルを書き出しました","ok");}
+ catch(e){notify("書き出し失敗: "+e.message,"error");}
+}
+function exportCsv(){
+ if(!book)return;
+ try{
+  const wb=toXlsx(),ws=wb.Sheets[wb.SheetNames[0]];
+  const csv="\uFEFF"+XLSX.utils.sheet_to_csv(ws);
+  const url=URL.createObjectURL(new Blob([csv],{type:"text/csv;charset=utf-8"}));
+  const a=document.createElement("a");a.href=url;a.download=filename(book.name)+".csv";document.body.append(a);a.click();a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),1000);notify("CSVを保存しました（現在の先頭シート）","ok");
+ }catch(e){notify("CSV出力失敗: "+e.message,"error");}
+}
+$.books.addEventListener("change",async()=>{const id=$.books.value;await openBook(id);updateBooks();});
+el("new").onclick=createBook;el("rename").onclick=renameBook;el("delete").onclick=deleteBook;
+$.save.onclick=()=>saveBook(true);
+el("import").onclick=()=>$.input.click();
+$.input.onchange=()=>{const f=$.input.files?.[0];$.input.value="";if(f)importFile(f);};
+el("exportxlsx").onclick=exportExcel;el("exportcsv").onclick=exportCsv;
+el("help").onclick=()=>el("helpdialog").showModal();el("helpclose").onclick=()=>el("helpdialog").close();
+document.addEventListener("keydown",e=>{if((e.ctrlKey||e.metaKey)&&!e.altKey&&e.key.toLowerCase()==="s"){e.preventDefault();saveBook(true);}});
+window.addEventListener("beforeunload",e=>{if(dirty){draft();e.preventDefault();e.returnValue="";}});
+window.addEventListener("online",()=>{if(dirty)saveBook(false);});
+async function init(){
+ try{
+  if(!window.x||!window.XLSX)throw new Error("外部ライブラリの読込に失敗しました。通信環境を確認してください。");
+  await refreshList();
+  if(bookList.length)await openBook(bookList[0].id);else await createEmptyAutomatically();
+ }catch(e){notify("起動できません: "+e.message,"error");$.loading.textContent="起動できません: "+e.message;}
+}
+init();
+})();
