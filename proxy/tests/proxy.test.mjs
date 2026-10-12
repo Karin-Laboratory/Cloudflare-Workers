@@ -11,6 +11,6 @@ test("reject local destinations and non-HTTPS",()=>{
   }
 });
 test("reject control characters, backslash URLs, unsupported ports",()=>{
-  for(const value of ["example.com\\@site.com","example.com\n","https://example.com:8443","https://foo.invalid"])
+  for(const value of ["example.com\\@site.com","exa\nmple.com","https://example.com:8443","https://foo.invalid"])
     assert.throws(()=>checkTarget(value),value);
 });
