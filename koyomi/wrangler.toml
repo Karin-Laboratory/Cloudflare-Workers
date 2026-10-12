@@ -1,0 +1,6 @@
+# Cloudflare Workers: 独立した暦アプリ
+# 既存のほかのWorkerやルートには影響しません。
+name = "today-japan-seasons"
+main = "src/index.js"
+compatibility_date = "2025-05-01"
+workers_dev = true
