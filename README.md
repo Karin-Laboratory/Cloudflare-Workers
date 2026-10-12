@@ -3,13 +3,14 @@
 Cloudflare Workers で動かす Karin-Lab 個人開発アプリのソースコードを、ひとつの GitHub リポジトリで管理するためのモノレポです。
 
 ## Cloudflare Worker 一覧（2026-10-12）
-以下の **15本すべて** を `main` の独立ディレクトリで管理します。Cloudflare Workers Builds は対応する `<folder>/**` の変更時だけその Worker をビルド・デプロイします。
+以下の **16本すべて** を `main` の独立ディレクトリで管理します。Cloudflare Workers Builds は対応する `<folder>/**` の変更時だけその Worker をビルド・デプロイします。
 
 | アプリ | Worker | 公開先 |
 |---|---|---|
 | [mykeep/](./mykeep/) | `mykeep` | `mykeep.karin-lab.com` |
 | [notepad/](./notepad/) | `karin-notepad` | `notepad.karin-lab.com` |
 | [excel/](./excel/) | `karin-excel` | `excel.karin-lab.com` |
+| [word/](./word/) | `karin-word` | `word.karin-lab.com` |
 | [proxy/](./proxy/) | `karin-proxy` | `proxy.karin-lab.com` |
 | [calendar/](./calendar/) | `karin-calendar` | `calendar.karin-lab.com` |
 | [discovery/](./discovery/) | `karin-discovery` | `discovery.karin-lab.com` |
@@ -51,6 +52,7 @@ Calendar、Portal、Museum、DiscoveryなどのWorkerもソース取込み済み
 - `mykeep/`: `npm ci`、`npm run build`、`node tests/pin-levels.mjs`、`npx wrangler deploy --keep-vars`。Cloudflare Workers Builds の root directory = `/mykeep`。
 - `notepad/`: `npm install`、`npm run check`、`npx wrangler deploy --dry-run`、`npx wrangler deploy --keep-vars`。Cloudflare Workers Buildsの root directory = `/notepad`、watch paths = `notepad/**`。
 - `excel/`: `npm install`、`npm run check`、`npx wrangler deploy --dry-run`、`npx wrangler deploy --keep-vars`。Cloudflare Workers Builds の root directory = `/excel`、watch paths = `excel/**`。
+- `word/`: `npm install`、`npm run check`（SHA256照合つきWordCraft WASM生成）、`npx wrangler deploy --dry-run`、`npx wrangler deploy --keep-vars`。root = `/word`、watch paths = `word/**`。
 
 **公開リポジトリ**です。Cloudflare Access のメールアドレス、APIキー、OTPやトークン、実データをコードに埋め込まないでください。D1/R2のIDと公開のデプロイ設定は機密ではありませんが、秘密情報はCloudflare側で管理してください。
 
