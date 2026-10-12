@@ -8,7 +8,7 @@ Cloudflare Workers + D1 に保存する、Karin-Lab専用Web表計算エディ�
 - 複数ブック、D1への1.5秒後自動保存、Ctrl+S、楽観ロック、失敗時のlocalStorage一時保管
 - Cloudflare Access「Owner only」、セッション30日で本人限定
 - VBA、マクロ、ピボット、Excel高度な機能の完全互換なし。XLSX書き出しでは一部の書式は非対応。
-- 依存ライブラリはバージョン固定したCDNからブラウザに読み込み。CDN通信が必要。
+- SheetJS 0.20.3 はビルド時に公式配布パッケージからローカル静的アセットへ展開し、Cloudflare Workers Static Assetsで自サイト配信。ブラウザの外部CDN接続は不要（x-spreadsheetはWorker経由キャッシュ配信）。
 
 デプロイ：`npm install && npm run check && npx wrangler deploy`（ルートディレクトリ `excel`）。
 Cloudflare Workers Builds: GitHub `Karin-Laboratory/Cloudflare-Workers` の `main` / root `excel` / watch path `excel/**`。
