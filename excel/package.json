@@ -4,10 +4,13 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "check": "node --check worker.js && node --check --input-type=commonjs < app.txt && node tests/smoke.mjs",
+    "check": "node scripts/prepare-assets.mjs && node --check worker.js && node --check --input-type=commonjs < app.txt && node tests/smoke.mjs",
     "deploy": "wrangler deploy --keep-vars"
   },
   "devDependencies": {
     "wrangler": "^4.142.0"
+  },
+  "dependencies": {
+    "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz"
   }
 }
