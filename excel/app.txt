@@ -180,15 +180,18 @@ async function importFile(file){
  if(!file)return;
  if(!window.XLSX){notify("Excel変換ライブラリを読み込めません。ページを再読み込みしてください。","error");return;}
  if(file.size>5*1024*1024){notify("5MBを超えるファイルは読み込めません","error");return;}
- if(!book||!(await flush()))return;
+ if(book&&!(await flush()))return;
  try{
   notify("ファイルを読み込み中…","busy");
   const buf=await file.arrayBuffer();
   const wb=XLSX.read(buf,{type:"array",cellFormula:true,cellDates:false});
   const data=fromXlsx(wb);
-  if(!confirm("「"+book.name+"」の内容を読み込み結果で置き換えます。続行しますか？")){notify("読み込みをキャンセルしました","ok");return;}
-  installGrid(data);dirty=true;serial++;draft();await saveBook(true);
-  notify(file.name+" を読み込みました","ok");
+  const name=basename(file.name.replace(/\.(xlsx|xls|csv|ods|tsv)$/i,""));
+  const created=await api("/api/books","POST",{name,data});
+  await refreshList();
+  book=null;dirty=false;clearTimeout(timer);
+  await openBook(created.id);
+  if(book&&book.id===created.id)notify("「"+book.name+"」を新しいブックとして開きました","ok");
  }catch(e){notify("読み込み失敗: "+e.message,"error");}
 }
 function exportExcel(){
