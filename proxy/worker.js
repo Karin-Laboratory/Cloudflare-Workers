@@ -19,10 +19,46 @@ export function checkTarget(raw) {
   url.hash="";
   return url;
 }
+
+/**
+ * HTMLRewriter requires UTF-8 input. Many Japanese sites, including some
+ * responses from Google, still serve Shift_JIS or another legacy encoding.
+ * Detect the upstream charset before handing markup to HTMLRewriter.
+ */
+export function detectCharset(bytes, contentType="") {
+  const data=bytes instanceof Uint8Array?bytes:new Uint8Array(bytes);
+  if(data.length>=3&&data[0]===0xef&&data[1]===0xbb&&data[2]===0xbf)return "utf-8";
+  if(data.length>=2&&data[0]===0xff&&data[1]===0xfe)return "utf-16le";
+  if(data.length>=2&&data[0]===0xfe&&data[1]===0xff)return "utf-16be";
+  const header=/\bcharset\s*=\s*["']?\s*([a-z0-9._-]+)/i.exec(contentType)?.[1];
+  if(header)return header;
+  const prefix=new TextDecoder("windows-1252").decode(data.subarray(0,8192));
+  const meta=/<meta\b[^>]{0,500}charset\s*=\s*["']?\s*([a-z0-9._-]+)/i.exec(prefix)?.[1];
+  if(meta)return meta;
+  const xml=/<\?xml\b[^>]{0,300}encoding\s*=\s*["']([^"']+)/i.exec(prefix)?.[1];
+  return xml||"utf-8";
+}
+export function decodeResponseBody(bytes, contentType="") {
+  const charset=detectCharset(bytes,contentType);
+  try{return new TextDecoder(charset).decode(bytes)}
+  catch{return new TextDecoder("utf-8").decode(bytes)}
+}
+// Some HTMLRewriter upstream attributes contain literal &amp; (and can
+// occasionally be double-escaped). Decode URL ampersands before resolving.
+export function decodeUrlEntities(value) {
+  let current=String(value);
+  for(let i=0;i<2;i++){
+    const next=current.replace(/&(?:amp|#0*38|#x0*26);/gi,"&");
+    if(next===current)break;
+    current=next;
+  }
+  return current;
+}
+
 function linkFor(url,kind="view"){return "/"+kind+"?url="+encodeURIComponent(url.toString())}
 function resolveRemote(value,base){
   if(!value||/^(?:#|data:|javascript:|mailto:|tel:|blob:)/i.test(value.trim()))return null;
-  try{return checkTarget(new URL(value,base).toString())}catch{return null}
+  try{return checkTarget(new URL(decodeUrlEntities(value),base).toString())}catch{return null}
 }
 function safeUrl(value,base,kind){
   const remote=resolveRemote(value,base);
@@ -96,6 +132,10 @@ function rewriterFor(target){
     }});
   }
   rw.on("base",{element(el){el.remove()}});
+  rw.on("meta[charset]",{element(el){el.setAttribute("charset","utf-8")}});
+  rw.on('meta[http-equiv="Content-Type"]',{element(el){
+    el.setAttribute("content","text/html; charset=utf-8");
+  }});
   rw.on('meta[http-equiv="Content-Security-Policy"]',{element(el){el.remove()}});
   rw.on('meta[http-equiv="refresh"]',{element(el){
     const v=el.getAttribute("content")||"",m=v.match(/^(\s*\d+(?:\.\d+)?\s*;\s*url\s*=\s*)(.*)$/i);
@@ -163,7 +203,7 @@ addEventListener('message',event=>{
   if(entries[position]!==url){entries=entries.slice(0,position+1);entries.push(url);position=entries.length-1}
   address.value=url;buttons();
 });
-const initial=new URL(location.href).searchParams.get('url');if(initial)show(normalized(initial));
+const initial=new URL(location.href).searchParams.get('url')||'https://www.google.com/?hl=ja';show(normalized(initial));
 </script></body></html>`;
   return new Response(html,{headers:{...COMMON,"Content-Type":"text/html; charset=utf-8","Content-Security-Policy":"default-src 'none'; frame-src 'self'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:"}});
 }
@@ -204,10 +244,18 @@ async function proxyRequest(request,kind){
   if(/\btext\/html\b/i.test(contentType)){
     responseHeaders.set("Content-Type","text/html; charset=utf-8");
     responseHeaders.set("Content-Security-Policy","sandbox allow-scripts allow-forms allow-downloads allow-popups");
-    return rewriterFor(target).transform(new Response(upstream.body,{status:upstream.status,headers:responseHeaders}));
+    // A string Response re-encodes the decoded source as UTF-8, as required
+    // by HTMLRewriter and by the UTF-8 Content-Type sent to the browser.
+    const bytes=await upstream.arrayBuffer();
+    if(bytes.byteLength>10_000_000)return fail("HTMLが10MBを超えるため表示できません。",413);
+    const html=decodeResponseBody(bytes,contentType);
+    return rewriterFor(target).transform(new Response(html,{status:upstream.status,headers:responseHeaders}));
   }
   if(/text\/css/i.test(contentType)){
-    const css=await upstream.text();
+    const bytes=await upstream.arrayBuffer();
+    if(bytes.byteLength>10_000_000)return fail("CSSが10MBを超えるため表示できません。",413);
+    const css=decodeResponseBody(bytes,contentType);
+    responseHeaders.set("Content-Type","text/css; charset=utf-8");
     return new Response(rewriteCss(css,target),{status:upstream.status,headers:responseHeaders});
   }
   return new Response(upstream.body,{status:upstream.status,headers:responseHeaders});
