@@ -133,7 +133,7 @@ function bootstrap(remoteURL){
       event.preventDefault();
       try{
         const target=new URL(action.searchParams.get('url'));
-        if(/^([^.]+\.)?google\.(com|co\.jp)$/i.test(target.hostname) && (target.pathname==='/search'||form.querySelector('[name="q"]'))) {
+        if((target.hostname==='www.google.com'||target.hostname==='www.google.co.jp'||target.hostname==='google.com'||target.hostname==='google.co.jp') && (target.pathname==='/search'||form.querySelector('[name="q"]'))) {
           const q=form.querySelector('[name="q"]');
           if(q && typeof q.value==='string') {
             const google=new URL('https://www.google.com/search');
