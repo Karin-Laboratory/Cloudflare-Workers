@@ -1,0 +1,14 @@
+{
+  "name": "karin-proxy",
+  "main": "worker.js",
+  "compatibility_date": "2026-10-01",
+  "account_id": "0c1723108de2b45ee7c8e4b45014a447",
+  "workers_dev": false,
+  "preview_urls": false,
+  "routes": [
+    {
+      "pattern": "proxy.karin-lab.com",
+      "custom_domain": true
+    }
+  ]
+}
