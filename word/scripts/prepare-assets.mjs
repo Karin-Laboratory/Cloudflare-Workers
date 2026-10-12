@@ -6,12 +6,12 @@ import { unzipSync } from "fflate";
 
 const VERSION = "0.5.0";
 const EXPECTED_SHA256 = "196d0070fec6572238298e211ac4a3ea0510b7a0ac8d6096a5ee59f2ff69f85d";
-const URL = `https://github.com/storytold/wordcraft/releases/download/v${VERSION}/wordcraft-web-${VERSION}.zip`;
+const RELEASE_URL = `https://github.com/storytold/wordcraft/releases/download/v${VERSION}/wordcraft-web-${VERSION}.zip`;
 const PREFIX = `wordcraft-web-${VERSION}/`;
 const destination = resolve("public");
 console.log("Fetching pinned WordCraft Web release", VERSION);
-const response = await fetch(URL, { signal: AbortSignal.timeout(120000), headers: { "User-Agent": "Karin-Word-Cloudflare-Build/1.0" } });
-if (!response.ok) throw new Error(`Release download HTTP ${response.status}: ${URL}`);
+const response = await fetch(RELEASE_URL, { signal: AbortSignal.timeout(120000), headers: { "User-Agent": "Karin-Word-Cloudflare-Build/1.0" } });
+if (!response.ok) throw new Error(`Release download HTTP ${response.status}: ${RELEASE_URL}`);
 const archive = new Uint8Array(await response.arrayBuffer());
 if (archive.byteLength > 30_000_000) throw new Error("Unexpected oversized release archive");
 const digest = createHash("sha256").update(archive).digest("hex");
