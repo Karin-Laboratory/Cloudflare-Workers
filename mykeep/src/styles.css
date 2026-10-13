@@ -440,3 +440,34 @@ h2 { margin: 0; font-size: 1.15rem; }
 @media (prefers-reduced-motion: reduce) {
   .pin-row.external-drop-target, .unpinned-drop-zone.external-drop-target { transition: none; }
 }
+
+
+/* One-field title correction for pages that require a signed-in browser. */
+.link-title-editor {
+  position: fixed;
+  right: 20px;
+  bottom: max(20px, env(safe-area-inset-bottom));
+  z-index: 35;
+  width: min(420px, calc(100vw - 32px));
+  padding: 16px;
+  border-radius: 14px;
+  border: 1px solid #c9ccd2;
+  background: #fff;
+  color: #2e3034;
+  box-shadow: 0 12px 40px #0003;
+}
+.link-title-editor-heading { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.link-title-editor-heading > button { border: 0; border-radius: 6px; padding: 4px 9px; background: transparent; color: inherit; font-size: 1.3rem; }
+.link-title-editor-heading > button:hover { background: #00000012; }
+.link-title-editor p { margin: 7px 0 13px; font-size: .84rem; line-height: 1.5; color: #666; }
+.link-title-editor form { display: grid; gap: 10px; }
+.link-title-editor input { width: 100%; min-height: 40px; padding: 8px 10px; border: 1px solid #9ca6b8; border-radius: 8px; background: #fff; color: #222; }
+.link-title-editor input:focus-visible { outline: 2px solid #356dcc; outline-offset: 2px; }
+.link-title-editor-actions { display: flex; gap: 8px; align-items: center; }
+.link-title-editor-actions button:not(.primary) { border: 1px solid #ddd; border-radius: 8px; background: #f5f5f3; padding: 9px 13px; }
+.link-title-editor .error { margin-bottom: 0; }
+:root[data-theme="dark"] .link-title-editor { background: #292c30; color: #f0eee9; border-color: #555a61; }
+:root[data-theme="dark"] .link-title-editor p { color: #c4c8cc; }
+:root[data-theme="dark"] .link-title-editor input { background: #1d2023; color: #f0eee9; border-color: #737984; }
+:root[data-theme="dark"] .link-title-editor-actions button:not(.primary) { background: #373a40; color: #f0eee9; border-color: #686c72; }
+@media(max-width:600px){ .link-title-editor { right: 12px; bottom: max(12px,env(safe-area-inset-bottom)); } }
