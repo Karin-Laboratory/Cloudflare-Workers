@@ -364,7 +364,6 @@ export default function App() {
     finally { setWorking(false); }
   }
   const [externalLinkOver, setExternalLinkOver] = useState(false);
-  const externalLinkSavingRef = useRef(false);
   const [linkDropStatus, setLinkDropStatus] = useState("");
   const browserDropBusyRef = useRef(false);
   const dropContextRef = useRef({ working: false, labelFilter: "" });
@@ -372,8 +371,11 @@ export default function App() {
     let dragDepth = 0;
     const internalDrag = (data: DataTransfer | null) =>
       !!draggingNoteRef.current || !!data?.types.includes("application/x-mykeep-note");
+    const isImageUpload = (event: globalThis.DragEvent) =>
+      !!(event.target instanceof Element && event.target.closest(".image-drop-zone, .image-drop, .image-upload"))
+      && !!event.dataTransfer?.types.includes("Files");
     const onEnter = (event: globalThis.DragEvent) => {
-      if (internalDrag(event.dataTransfer)) return;
+      if (internalDrag(event.dataTransfer) || isImageUpload(event)) return;
       event.preventDefault();
       dragDepth++;
       setExternalLinkOver(true);
