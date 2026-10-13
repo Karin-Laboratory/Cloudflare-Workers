@@ -95,3 +95,23 @@ const {fileAppearance} = await import('/tmp/mykeep-file-appearance.mjs');
 for (const [filename, label] of [['report.PDF','PDF'], ['sheet.xlsx','表計算'], ['doc.docx','文書'], ['slides.pptx','プレゼンテーション'], ['sound.mp3','音声'], ['movie.mp4','動画'], ['archive.zip','圧縮ファイル'], ['data.bin','ファイル']]) assert.equal(fileAppearance(filename, '').label, label);
 assert.equal(fileAppearance('record', 'audio/ogg').label, '音声');
 console.log('PASS: file upload/download/delete, Unicode filenames, image compatibility, safe downloads, size limit and file icons');
+
+await build({entryPoints:['src/droppedBrowserLink.ts'],bundle:true,format:'esm',platform:'browser',outfile:'/tmp/mykeep-dropped-browser-link.mjs'});
+const {parseDroppedBrowserLink}=await import('/tmp/mykeep-dropped-browser-link.mjs');
+const drag = (payload) => ({ getData: (format) => payload[format] ?? '' });
+let dropped = parseDroppedBrowserLink(drag({
+  'text/uri-list':'https://www.example.org/news?q=1',
+  'text/html':'<a href="https://www.example.org/news?q=1">便利な記事 &amp; お知らせ</a>',
+  'text/plain':'https://www.example.org/news?q=1',
+}));
+assert.deepEqual(dropped, {url:'https://www.example.org/news?q=1', title:'便利な記事 & お知らせ', hasPageTitle:true});
+dropped = parseDroppedBrowserLink(drag({'text/uri-list':'https://www.example.org/a','text/plain':'https://www.example.org/a'}));
+assert.deepEqual(dropped, {url:'https://www.example.org/a',title:'www.example.org',hasPageTitle:false});
+dropped = parseDroppedBrowserLink(drag({'text/x-moz-url':'https://www.example.org/test\n実際のページタイトル'}));
+assert.equal(dropped.title,'実際のページタイトル');
+assert.equal(dropped.hasPageTitle,true);
+dropped = parseDroppedBrowserLink(drag({'DownloadURL':'application/x-url:Example Page.url:https://www.example.org/page'}));
+assert.equal(dropped.url,'https://www.example.org/page');
+assert.equal(dropped.title,'Example Page');
+assert.equal(parseDroppedBrowserLink(drag({'text/plain':'javascript:alert(1)'})),null);
+console.log('PASS: external browser drag payloads retain meaningful page titles and URLs');
