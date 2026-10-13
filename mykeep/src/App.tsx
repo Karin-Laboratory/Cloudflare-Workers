@@ -399,6 +399,7 @@ export default function App() {
       setExternalLinkOver(false);
       const data = event.dataTransfer;
       if (!data) return;
+      let link = droppedBrowserLink(data);
       if (!link && data.files.length === 1 && data.files[0].name.toLowerCase().endsWith(".url")) {
         try {
           const content = await data.files[0].text();
