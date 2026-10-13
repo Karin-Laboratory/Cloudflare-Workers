@@ -8,6 +8,7 @@ import type { KeepZipResult } from "./keepImport";
 import { displayLinkTitle, getLinkPreview, mergeLinkPreview } from "./linkPreview";
 import type { LinkPreview } from "./linkPreview";
 import { fileAppearance } from "./fileAppearance";
+import { parseDroppedBrowserLink } from "./droppedBrowserLink";
 import { NOTE_COLORS } from "./types";
 import type { Attachment, ChecklistInput, Note, NoteColor, NoteInput } from "./types";
 
@@ -151,25 +152,6 @@ function ImageViewer({ images, initialIndex, onClose }: { images: ViewerImage[];
       <button type="button" disabled={images.length < 2} onClick={() => move(1)} aria-label="次の画像">次 →</button>
     </div>
   </div>;
-}
-
-/** Extract browser-address/link drags without interfering with MyKeep card moves. */
-function droppedBrowserLink(data: DataTransfer): { url: string; title: string } | null {
-  const uri = data.getData("text/uri-list").split(/\r?\n/).find((line) => line.trim() && !line.startsWith("#"))?.trim() ?? "";
-  const moz = data.getData("text/x-moz-url").split(/\r?\n/);
-  const plain = data.getData("text/plain").trim();
-  const html = data.getData("text/html");
-  const href = html.match(/<a\b[^>]*\bhref\s*=\s*["']([^"']+)["']/i)?.[1] ?? "";
-  const candidates = [uri, moz[0], plain, href];
-  for (const candidate of candidates) {
-    try {
-      const url = new URL(candidate);
-      if (url.protocol !== "http:" && url.protocol !== "https:") continue;
-      const title = (moz[1] || (plain && plain !== candidate && !/^https?:\/\//i.test(plain) ? plain : "") || url.hostname).slice(0, 200);
-      return { url: url.href, title };
-    } catch { /* Try the next browser drag format. */ }
-  }
-  return null;
 }
 
 function labelKey(name: string): string {
@@ -423,14 +405,14 @@ export default function App() {
       // Exact same destination calculation is shared by the highlight and save.
       // Outside a group, preserve the existing fallback to "ピンなし".
       const destinationLevel = destinationAt(event.target) ?? 0;
-      let link = droppedBrowserLink(data);
+      let link = parseDroppedBrowserLink(data);
       if (!link && data.files.length === 1 && data.files[0].name.toLowerCase().endsWith(".url")) {
         try {
           const content = await data.files[0].text();
           const found = content.split("\n").map(line => line.trim()).find(line => line.startsWith("URL=http"));
           if (found) {
             const url = new URL(found.slice(4).trim());
-            link = { url: url.href, title: url.hostname };
+            link = { url: url.href, title: url.hostname, hasPageTitle: false };
           }
         } catch { /* Report unsupported drops below. */ }
       }
@@ -444,12 +426,29 @@ export default function App() {
       setLinkDropStatusKind("saving");
       setLinkDropStatus("リンクを保存しています…");
       try {
-        await api<{ note: Note }>("/api/notes", {
+        const { note: created } = await api<{ note: Note }>("/api/notes", {
           method: "POST",
           body: JSON.stringify({ ...emptyNote, title: link.title, url: link.url,
             pinned: destinationLevel > 0, pin_level: destinationLevel,
             labels: dropContextRef.current.labelFilter ? [dropContextRef.current.labelFilter] : [] }),
         });
+        // Keep the drop immediate; resolve a real page title asynchronously if
+        // Chrome supplied only the URL. Never overwrite a title the user edited.
+        if (!link.hasPageTitle) {
+          const originalTitle = link.title;
+          const originalUrl = link.url;
+          void getLinkPreview(originalUrl).then(async preview => {
+            if (!preview) return;
+            const pageTitle = displayLinkTitle(preview, "").trim().slice(0, 300);
+            if (!pageTitle || pageTitle === originalTitle || pageTitle.toLowerCase() === new URL(originalUrl).hostname.toLowerCase()) return;
+            const { note: current } = await api<{ note: Note }>(`/api/notes/${created.id}`);
+            if (current.deleted_at || current.title !== originalTitle || current.url !== originalUrl) return;
+            await api<{ note: Note }>(`/api/notes/${created.id}`, {
+              method: "PATCH", body: JSON.stringify({ title: pageTitle }),
+            });
+            reloadList();
+          }).catch(() => { /* Some pages restrict metadata access; retain the URL and hostname. */ });
+        }
         if (destinationLevel > 0) setPinCollapsed(destinationLevel, false);
         const groupName = destinationLevel > 0
           ? (dropContextRef.current.headings[destinationLevel - 1] || `${destinationLevel}段目`)
@@ -1688,7 +1687,7 @@ export default function App() {
               </span>}
               <span className="link-preview-details">
                 <strong>{displayLinkTitle(visiblePreview, note.title)}</strong>
-                <small>{visiblePreview.hostname}</small>
+                <small className="link-preview-url" title={note.url}>{note.url}</small>
                 {visiblePreview.description && <span>{visiblePreview.description}</span>}
               </span>
             </a>
