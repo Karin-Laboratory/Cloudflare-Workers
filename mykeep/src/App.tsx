@@ -399,6 +399,11 @@ export default function App() {
       setExternalLinkOver(false);
       const data = event.dataTransfer;
       if (!data) return;
+      // Capture the destination before awaiting any asynchronous file parsing.
+      const target = event.target instanceof Element ? event.target : null;
+      const pinRow = target?.closest<HTMLElement>("[data-pin-level]");
+      const requestedLevel = pinRow ? Number(pinRow.dataset.pinLevel) : 0;
+      const destinationLevel = Number.isInteger(requestedLevel) && requestedLevel >= 1 && requestedLevel <= 3 ? requestedLevel : 0;
       let link = droppedBrowserLink(data);
       if (!link && data.files.length === 1 && data.files[0].name.toLowerCase().endsWith(".url")) {
         try {
@@ -421,9 +426,10 @@ export default function App() {
         await api<{ note: Note }>("/api/notes", {
           method: "POST",
           body: JSON.stringify({ ...emptyNote, title: link.title, url: link.url,
+            pinned: destinationLevel > 0, pin_level: destinationLevel,
             labels: dropContextRef.current.labelFilter ? [dropContextRef.current.labelFilter] : [] }),
         });
-        setLinkDropStatus(`リンクを保存しました: ${link.title}`);
+        setLinkDropStatus(`リンクを${destinationLevel ? `${destinationLevel}段目` : "ピンなし"}に保存しました: ${link.title}`);
         reloadList();
       } catch (cause) {
         setLinkDropStatus(cause instanceof Error ? `保存失敗: ${cause.message}` : "リンクの保存に失敗しました。");
