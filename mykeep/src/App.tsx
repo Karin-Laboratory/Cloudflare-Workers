@@ -364,46 +364,65 @@ export default function App() {
     finally { setWorking(false); }
   }
   const [externalLinkOver, setExternalLinkOver] = useState(false);
+  const [externalTargetLevel, setExternalTargetLevel] = useState<number | null>(null);
   const [linkDropStatus, setLinkDropStatus] = useState("");
+  const [linkDropStatusKind, setLinkDropStatusKind] = useState<"saving" | "success" | "error">("saving");
   const browserDropBusyRef = useRef(false);
-  const dropContextRef = useRef({ working: false, labelFilter: "" });
+  const dropContextRef = useRef({ working: false, labelFilter: "", headings: pinHeadings });
+  useEffect(() => {
+    if (!linkDropStatus || linkDropStatusKind === "saving") return;
+    const timer = window.setTimeout(() => setLinkDropStatus(""), linkDropStatusKind === "error" ? 9000 : 5500);
+    return () => window.clearTimeout(timer);
+  }, [linkDropStatus, linkDropStatusKind]);
   useEffect(() => {
     let dragDepth = 0;
     const internalDrag = (data: DataTransfer | null) =>
       !!draggingNoteRef.current || !!data?.types.includes("application/x-mykeep-note");
     const isImageUpload = (event: globalThis.DragEvent) =>
-      !!(event.target instanceof Element && event.target.closest(".image-drop-zone, .image-drop, .image-upload"))
+      !!(event.target instanceof Element && event.target.closest(".image-dropzone"))
       && !!event.dataTransfer?.types.includes("Files");
+    const destinationAt = (target: EventTarget | null): number | null => {
+      const element = target instanceof Element ? target : null;
+      const pinRow = element?.closest<HTMLElement>(".pin-row[data-pin-level]");
+      const level = pinRow ? Number(pinRow.dataset.pinLevel) : 0;
+      if (Number.isInteger(level) && level >= 1 && level <= 3) return level;
+      return element?.closest(".unpinned-drop-zone") ? 0 : null;
+    };
+    const clearHighlight = () => {
+      setExternalLinkOver(false);
+      setExternalTargetLevel(null);
+    };
     const onEnter = (event: globalThis.DragEvent) => {
       if (internalDrag(event.dataTransfer) || isImageUpload(event)) return;
       event.preventDefault();
       dragDepth++;
       setExternalLinkOver(true);
+      setExternalTargetLevel(destinationAt(event.target));
     };
     const onOver = (event: globalThis.DragEvent) => {
       if (internalDrag(event.dataTransfer)) return;
+      if (isImageUpload(event)) { clearHighlight(); return; }
       event.preventDefault();
       if (event.dataTransfer) event.dataTransfer.dropEffect = "copy";
       setExternalLinkOver(true);
+      setExternalTargetLevel(destinationAt(event.target));
     };
     const onLeave = (event: globalThis.DragEvent) => {
       if (internalDrag(event.dataTransfer)) return;
       dragDepth = Math.max(0, dragDepth - 1);
-      if (!dragDepth) setExternalLinkOver(false);
+      if (!dragDepth) clearHighlight();
     };
     const onDrop = async (event: globalThis.DragEvent) => {
-      if (internalDrag(event.dataTransfer)) return;
+      if (internalDrag(event.dataTransfer) || isImageUpload(event)) return;
       event.preventDefault();
       event.stopPropagation();
       dragDepth = 0;
-      setExternalLinkOver(false);
+      clearHighlight();
       const data = event.dataTransfer;
       if (!data) return;
-      // Capture the destination before awaiting any asynchronous file parsing.
-      const target = event.target instanceof Element ? event.target : null;
-      const pinRow = target?.closest<HTMLElement>("[data-pin-level]");
-      const requestedLevel = pinRow ? Number(pinRow.dataset.pinLevel) : 0;
-      const destinationLevel = Number.isInteger(requestedLevel) && requestedLevel >= 1 && requestedLevel <= 3 ? requestedLevel : 0;
+      // Exact same destination calculation is shared by the highlight and save.
+      // Outside a group, preserve the existing fallback to "ピンなし".
+      const destinationLevel = destinationAt(event.target) ?? 0;
       let link = droppedBrowserLink(data);
       if (!link && data.files.length === 1 && data.files[0].name.toLowerCase().endsWith(".url")) {
         try {
@@ -416,11 +435,13 @@ export default function App() {
         } catch { /* Report unsupported drops below. */ }
       }
       if (!link) {
+        setLinkDropStatusKind("error");
         setLinkDropStatus(`URLを読み取れません（形式: ${Array.from(data.types).join(", ") || "不明"}）。`);
         return;
       }
       if (browserDropBusyRef.current || dropContextRef.current.working) return;
       browserDropBusyRef.current = true;
+      setLinkDropStatusKind("saving");
       setLinkDropStatus("リンクを保存しています…");
       try {
         await api<{ note: Note }>("/api/notes", {
@@ -429,9 +450,15 @@ export default function App() {
             pinned: destinationLevel > 0, pin_level: destinationLevel,
             labels: dropContextRef.current.labelFilter ? [dropContextRef.current.labelFilter] : [] }),
         });
-        setLinkDropStatus(`リンクを${destinationLevel ? `${destinationLevel}段目` : "ピンなし"}に保存しました: ${link.title}`);
+        if (destinationLevel > 0) setPinCollapsed(destinationLevel, false);
+        const groupName = destinationLevel > 0
+          ? (dropContextRef.current.headings[destinationLevel - 1] || `${destinationLevel}段目`)
+          : "ピンなし";
+        setLinkDropStatusKind("success");
+        setLinkDropStatus(`「${groupName}」に追加しました: ${link.title}`);
         reloadList();
       } catch (cause) {
+        setLinkDropStatusKind("error");
         setLinkDropStatus(cause instanceof Error ? `保存失敗: ${cause.message}` : "リンクの保存に失敗しました。");
       } finally {
         browserDropBusyRef.current = false;
@@ -461,7 +488,7 @@ export default function App() {
   const [pullDistance, setPullDistance] = useState(0);
   const [pullRefreshing, setPullRefreshing] = useState(false);
   const [working, setWorking] = useState(false);
-  dropContextRef.current = { working, labelFilter };
+  dropContextRef.current = { working, labelFilter, headings: pinHeadings };
   const [undoAction, setUndoAction] = useState<UndoAction | null>(null);
   const [undoing, setUndoing] = useState(false);
   const undoingRef = useRef(false);
@@ -1744,8 +1771,19 @@ export default function App() {
         <p>ゴミ箱内のメモは7日後に削除されます。</p>
         <button type="button" className="danger" disabled={working || importing || exporting || !counts?.views.trash} onClick={() => void clearTrash()}>ゴミ箱を空にする</button>
       </div>}
-      {externalLinkOver && <div role="status" style={{position:"fixed", zIndex:10000, inset:16, pointerEvents:"none", border:"4px dashed #5aa9ff", borderRadius:16, background:"rgba(35,90,155,.15)", display:"grid", placeItems:"center"}}><strong style={{padding:20, background:"#17304d", color:"#fff", borderRadius:12}}>🔗 ここにドロップしてリンクを追加</strong></div>}
-      {linkDropStatus && <p role="status" style={{padding:12, border:"1px solid currentColor", borderRadius:8}}>{linkDropStatus}</p>}
+      {externalLinkOver && <div className="external-drag-banner" aria-hidden="true">
+        <span className="external-drag-icon">🔗</span>
+        <span><strong>{externalTargetLevel !== null && externalTargetLevel > 0
+          ? `${pinHeadings[externalTargetLevel - 1] || `${externalTargetLevel}段目`} に追加`
+          : "ピンなしに追加"}</strong>
+          <small>{externalTargetLevel === null ? "グループ上に移動すると保存先を指定できます" : "ここで離すとリンクを保存します"}</small>
+        </span>
+      </div>}
+      {linkDropStatus && <div className={`external-drop-toast is-${linkDropStatusKind}`} role={linkDropStatusKind === "error" ? "alert" : "status"}>
+        <span aria-hidden="true">{linkDropStatusKind === "success" ? "✓" : linkDropStatusKind === "error" ? "⚠" : "↻"}</span>
+        <span className="drop-message">{linkDropStatus}</span>
+        {linkDropStatusKind !== "saving" && <button type="button" className="drop-dismiss" aria-label="通知を閉じる" onClick={() => setLinkDropStatus("")}>×</button>}
+      </div>}
       {bulkResult && <p className={bulkResult.failed ? "error" : "bulk-result"} role={bulkResult.failed ? "alert" : "status"}>{bulkResult.message}</p>}
       {error && !draft && <p className="error" role="alert">{error}</p>}
       {!loading && notes.length === 0 && <p className="empty">{search.trim() || labelFilter ? "該当するメモはありません。" : view === "active" ? "メモはまだありません。" : view === "unpinned" ? "ピンなしのメモはありません。" : view === "images" ? "画像ありのメモはありません。" : view === "imageless" ? "画像なしのメモはありません。" : view === "archived" ? "アーカイブはありません。" : "ゴミ箱は空です。"}</p>}
@@ -1754,7 +1792,7 @@ export default function App() {
         <section className="grid" aria-label="ゴミ箱一覧">{notes.map(renderNoteCard)}</section>
       ) : <>
         {view !== "unpinned" && pinRows.map(({ level, notes: rowNotes }) => (view === "active" || rowNotes.length > 0) &&
-          <section className={`pin-row${dropLevel === level ? " drag-over-row" : ""}`} data-pin-level={level}
+          <section className={`pin-row${dropLevel === level ? " drag-over-row" : ""}${externalLinkOver && externalTargetLevel === level ? " external-drop-target" : ""}`} data-pin-level={level}
             onDragOver={(event) => { if (draggingNoteRef.current && !working) { event.preventDefault(); setDropNoteId(null); setDropLevel(level); } }}
             onDrop={(event) => { if (draggingNoteRef.current) { event.preventDefault(); setPinCollapsed(level, false); void dropCard(level, null); } }} key={level} aria-label={`${pinHeadings[level - 1]}のピン留めメモ`}>
             <div className="pin-row-heading">
@@ -1785,7 +1823,7 @@ export default function App() {
               </div>
             </div>
           </section>)}
-        {(otherNotes.length > 0 || view === "active") && <section className={`grid unpinned-drop-zone${dropLevel === 0 ? " drag-over-row" : ""}`}
+        {(otherNotes.length > 0 || view === "active") && <section className={`grid unpinned-drop-zone${dropLevel === 0 ? " drag-over-row" : ""}${externalLinkOver && externalTargetLevel === 0 ? " external-drop-target" : ""}`}
           onDragOver={(event) => { if (draggingNoteRef.current && !working) { event.preventDefault(); setDropNoteId(null); setDropLevel(0); } }}
           onDrop={(event) => { if (draggingNoteRef.current) { event.preventDefault(); void dropCard(0, null); } }} aria-label={view === "active" ? "メモ一覧" : view === "unpinned" ? "ピンなしメモ一覧" : view === "images" ? "画像ありメモ一覧" : view === "imageless" ? "画像なしメモ一覧" : "アーカイブ一覧"}>{otherNotes.length ? otherNotes.map(renderNoteCard) : <p className="pin-row-empty">ピンなしのメモをここに移動できます。</p>}</section>}
       </>}
