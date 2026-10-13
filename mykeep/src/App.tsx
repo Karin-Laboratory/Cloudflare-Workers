@@ -400,14 +400,14 @@ export default function App() {
       const data = event.dataTransfer;
       if (!data) return;
       if (!link && data.files.length === 1 && data.files[0].name.toLowerCase().endsWith(".url")) {
-      // Chrome may expose a dragged address as an Internet Shortcut file.
-      if (!link && data.files.length === 1 && /\\.(url|webloc)$/i.test(data.files[0].name)) {
-          const match = content.split("\n").map(line => line.trim()).find(line => line.startsWith("URL=http"));
-          if (match) {
-            const url = new URL(match.slice(4).trim());
+        try {
+          const content = await data.files[0].text();
+          const found = content.split("\n").map(line => line.trim()).find(line => line.startsWith("URL=http"));
+          if (found) {
+            const url = new URL(found.slice(4).trim());
             link = { url: url.href, title: url.hostname };
           }
-        } catch { /* Show diagnostics below. */ }
+        } catch { /* Report unsupported drops below. */ }
       }
       if (!link) {
         setLinkDropStatus(`URLを読み取れません（形式: ${Array.from(data.types).join(", ") || "不明"}）。`);
