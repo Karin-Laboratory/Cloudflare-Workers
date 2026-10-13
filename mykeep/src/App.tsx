@@ -153,6 +153,20 @@ function ImageViewer({ images, initialIndex, onClose }: { images: ViewerImage[];
   </div>;
 }
 
+/** Extract browser-address/link drags without interfering with MyKeep card moves. */
+function droppedBrowserLink(data: DataTransfer): { url: string; title: string } | null {
+  const uriList = data.getData("text/uri-list").split(/\r?\n/).find((line) => line.trim() && !line.startsWith("#"))?.trim() ?? "";
+  const moz = data.getData("text/x-moz-url").split(/\r?\n/);
+  const plain = data.getData("text/plain").trim();
+  const candidate = uriList || moz[0] || plain;
+  try {
+    const url = new URL(candidate);
+    if (!["https:", "http:"].includes(url.protocol)) return null;
+    const title = uriList ? (plain && plain !== uriList && !/^https?:\/\//i.test(plain) ? plain : "") : moz[1] ?? "";
+    return { url: url.href, title: title.slice(0, 200) || url.hostname };
+  } catch { return null; }
+}
+
 function labelKey(name: string): string {
   return name.trim().normalize("NFC").toLowerCase();
 }
@@ -343,6 +357,33 @@ export default function App() {
       reloadList();
     } catch (cause) { setError(cause instanceof Error ? cause.message : "移動に失敗しました。"); }
     finally { setWorking(false); }
+  }
+  const [externalLinkOver, setExternalLinkOver] = useState(false);
+  const externalLinkSavingRef = useRef(false);
+  function isBrowserLinkDrag(event: DragEvent<HTMLElement>): boolean {
+    return !draggingNoteRef.current && !Array.from(event.dataTransfer.types).includes("Files")
+      && Array.from(event.dataTransfer.types).some((type) =>
+        ["text/uri-list", "text/plain", "text/x-moz-url"].includes(type));
+  }
+  async function dropBrowserLink(event: DragEvent<HTMLElement>) {
+    if (!isBrowserLinkDrag(event)) return;
+    event.preventDefault();
+    setExternalLinkOver(false);
+    const link = droppedBrowserLink(event.dataTransfer);
+    if (!link || externalLinkSavingRef.current || working) return;
+    externalLinkSavingRef.current = true;
+    setError("");
+    try {
+      await api<{ note: Note }>("/api/notes", {
+        method: "POST",
+        body: JSON.stringify({ ...emptyNote, title: link.title, url: link.url, labels: labelFilter ? [labelFilter] : [] }),
+      });
+      reloadList();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "リンクを保存できませんでした。");
+    } finally {
+      externalLinkSavingRef.current = false;
+    }
   }
   const [view, setView] = useState<View>("active");
   const [search, setSearch] = useState("");
@@ -1632,7 +1673,11 @@ export default function App() {
             </nav>
           </div>
         </aside>
-        <div className="main-content" ref={mainContentRef}>
+        <div className={`main-content${externalLinkOver ? " external-link-over" : ""}`} ref={mainContentRef}
+          onDragOver={(event) => { if (isBrowserLinkDrag(event)) { event.preventDefault(); event.dataTransfer.dropEffect = "copy"; setExternalLinkOver(true); } }}
+          onDragLeave={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node)) setExternalLinkOver(false); }}
+          onDrop={(event) => { void dropBrowserLink(event); }}
+          >
       {(pullDistance > 0 || pullRefreshing) && <div className="pull-indicator" role="status" style={{ height: pullRefreshing ? 38 : Math.min(pullDistance, 80) }}>↻ {pullRefreshing ? "更新中…" : pullDistance >= 70 ? "離して更新" : "引っ張って更新"}</div>}
       {view === "trash" && <div className="trash-header">
         <p>ゴミ箱内のメモは7日後に削除されます。</p>
