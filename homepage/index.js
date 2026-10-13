@@ -68,6 +68,21 @@ main{padding-top:13px}
 @media(max-width:1020px){.board{grid-template-columns:repeat(3,minmax(0,1fr))}.tab-content{grid-column:2 / span 2;grid-template-columns:repeat(2,minmax(0,1fr))}.desktop-tabs{margin-left:calc((100% - 46px)/3 + 23px)}}
 @media(max-width:780px){.board{grid-template-columns:repeat(2,minmax(0,1fr))}.tab-content{grid-column:2;grid-template-columns:minmax(0,1fr)}.desktop-tabs{margin-left:calc((100% - 46px)/2 + 23px)}}
 @media(max-width:570px){.board{grid-template-columns:1fr}.fixed-column{grid-column:1;grid-row:1;min-height:0}.tab-content{grid-column:1;grid-row:2;grid-template-columns:1fr}.desktop-tabs{margin-left:11px;margin-right:11px}}
+
+/* Independent viewport scrolling for the common column and current desktop. */
+@media(min-width:571px){
+ body{height:100dvh;display:flex;flex-direction:column;overflow:hidden}
+ header,.desktop-tabs{flex-shrink:0}
+ .desktop-tabs{width:calc(100% - max(calc((100% - 1800px)/2 + 360px),calc((100% - 46px)/5 + 23px)) - 23px)}
+ main{width:100%;flex:1;min-height:0;padding-bottom:16px;overflow:hidden}
+ .board{height:100%;min-height:0;grid-template-rows:minmax(0,1fr)}
+ .fixed-column,.tab-content{height:100%;min-height:0;overflow-y:auto;overscroll-behavior-y:contain;scrollbar-width:thin;align-content:start}
+ .fixed-column{justify-content:flex-start}
+ .tab-content{padding-right:5px;padding-bottom:8px}
+}
+@media(min-width:571px) and (max-width:1320px){.desktop-tabs{width:calc((100% - 46px)*.75)}}
+@media(min-width:571px) and (max-width:1020px){.desktop-tabs{width:calc((100% - 46px)*2/3)}}
+@media(min-width:571px) and (max-width:780px){.desktop-tabs{width:calc((100% - 46px)/2)}}
 </style></head><body><header><strong><span>✦</span> Karin Homepage</strong><span class="clock" id="clock"></span><input id="search" type="search" placeholder="リンクを検索 / URLをグループにドラッグ"><button id="addLink" class="primary">＋ リンク追加</button><button id="mobileSort" title="並び順">↕</button></header><nav id="desktopTabs" class="desktop-tabs" role="tablist" aria-label="デスクトップの切り替え"></nav>
 <main><div class="board" id="board"></div></main><div class="toast" id="toast"></div>
 <dialog id="dialog"><form id="editForm"><h2 id="dialogTitle"></h2><div id="fields"></div><p class="hint" id="formHint"></p><menu><button type="button" id="deleteItem">削除</button><button type="button" id="cancelDialog">キャンセル</button><button type="submit" class="primary">保存</button></menu></form></dialog>
@@ -76,7 +91,7 @@ let state=[],tabs=[{id:'main',name:'デスクトップ1'}],activeTab='main',revi
 const $=id=>document.getElementById(id),esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const uid=()=>crypto.randomUUID(),toast=s=>{const e=$('toast');e.textContent=s;e.style.display='block';clearTimeout(e._t);e._t=setTimeout(()=>e.style.display='none',2800)};
 function renderTabs(){$('desktopTabs').innerHTML=tabs.map(t=>{const on=t.id===activeTab;return '<div class="tab-wrap'+(on?' active':'')+'" draggable="true" data-tab="'+esc(t.id)+'"><button class="desktop-tab" role="tab" aria-selected="'+on+'" data-tab="'+esc(t.id)+'" title="'+esc(t.name)+'">'+esc(t.name)+'</button>'+(on?'<button class="tab-control" data-rename="'+esc(t.id)+'" title="名前を変更">✎</button>'+(t.id!=='main'?'<button class="tab-control" data-remove="'+esc(t.id)+'" title="削除">×</button>':''):'')+'</div>'}).join('')+'<button id="addDesktop" class="tab-add" title="デスクトップを追加" aria-label="デスクトップを追加">＋</button>'}
-function selectTab(id){if(!tabs.some(t=>t.id===id))return;activeTab=id;try{localStorage.setItem('karin-homepage-active-tab',id)}catch{}render()}
+function selectTab(id,edge='top'){if(!tabs.some(t=>t.id===id))return;activeTab=id;try{localStorage.setItem('karin-homepage-active-tab',id)}catch{}render();const panel=document.querySelector('.tab-content');if(panel)panel.scrollTop=edge==='bottom'?panel.scrollHeight:0;document.querySelector('.tab-wrap.active')?.scrollIntoView({block:'nearest',inline:'nearest'})}
 function addDesktop(){if(tabs.length>=20)return toast('デスクトップは20個まで');let n=1;while(tabs.some(t=>t.name==='デスクトップ'+n))n++;const id=uid();tabs.push({id,name:'デスクトップ'+n});activeTab=id;changed();try{localStorage.setItem('karin-homepage-active-tab',id)}catch{}}
 function renameDesktop(id){const t=tabs.find(t=>t.id===id);if(!t)return;const result=prompt('デスクトップ名',t.name);if(result===null)return;const val=result.trim();if(!val||val.length>50)return toast('1～50文字で入力してください');t.name=val;changed()}
 function removeDesktop(id){if(id==='main')return;const t=tabs.find(t=>t.id===id);if(!t)return;const n=state.filter(g=>(g.desktopId||'main')===id).length;if(!confirm('「'+t.name+'」を削除しますか？'+(n?'\n'+n+'グループをデスクトップ1に移動します。':'')))return;state.forEach(g=>{if(g.desktopId===id)g.desktopId='main'});tabs=tabs.filter(t=>t.id!==id);activeTab='main';changed()}
@@ -158,7 +173,29 @@ function intranetIconSlug(link,host){
  return 'intranet';
 }
 
-function render(){renderTabs();const q=$('search').value.trim().toLowerCase();const renderGroups=groups=>groups.map(g=>{const links=g.links.filter(l=>(l.title+' '+l.description+' '+l.url).toLowerCase().includes(q));if(q&&!links.length&&!g.name.toLowerCase().includes(q))return '';return '<section class="group" data-gid="'+esc(g.id)+'" draggable="'+(!q)+'"><div class="grouphead" draggable="'+(!q)+'"><span class="mark" style="color:'+esc(g.color)+'">'+esc(g.icon||'◆')+'</span><h2 title="'+esc(g.name)+'">'+esc(g.name)+'</h2><div class="actions"><button class="mini editgroup" title="ジャンル編集" data-gid="'+esc(g.id)+'">✎</button></div></div><div class="cards">'+(links.length?links.map(l=>{let host='';try{host=new URL(l.url).hostname}catch{}const slug=host.endsWith('.karin-lab.com')?host.slice(0,-'.karin-lab.com'.length):'';const intranetIcon=intranetIconSlug(l,host);const iconSrc=intranetIcon?'/app-icon/'+intranetIcon+'.svg':slug?'/app-icon/'+encodeURIComponent(slug)+'.svg':host?'/favicon?domain='+encodeURIComponent(host):'/app-icon/intranet.svg';const ico='<img class="favicon" src="'+iconSrc+'" alt="" loading="lazy"><span class="genericicon fallbackicon" hidden>'+esc(l.title.slice(0,1).toUpperCase())+'</span>';return '<article class="link" draggable="'+(!q)+'" data-lid="'+esc(l.id)+'" data-gid="'+esc(g.id)+'">'+ico+'<a href="'+esc(l.url)+'" target="_blank" rel="noopener noreferrer"><div class="details"><div class="name">'+esc(l.title)+'</div><div class="desc">'+esc(l.description||host)+'</div></div></a><button class="mini editlink" data-lid="'+esc(l.id)+'" data-gid="'+esc(g.id)+'" title="編集">✎</button></article>'}).join(''):'<div class="empty">ここへドロップ</div>')+'</div></section>'}).join('');$('board').innerHTML='<div class="fixed-column" aria-label="全タブ共通">'+renderGroups(state.filter(g=>g.desktopId==='common'))+'</div><div class="tab-content">'+renderGroups(state.filter(g=>(g.desktopId||'main')===activeTab))+'<button class="addgroup-tile" type="button" data-action="add-group"><span class="addgroup-symbol">＋</span><strong>グループを追加</strong><small>リンクを用途別にまとめる</small></button></div>';}
+function render(){const fixedScroll=document.querySelector('.fixed-column')?.scrollTop||0;renderTabs();const q=$('search').value.trim().toLowerCase();const renderGroups=groups=>groups.map(g=>{const links=g.links.filter(l=>(l.title+' '+l.description+' '+l.url).toLowerCase().includes(q));if(q&&!links.length&&!g.name.toLowerCase().includes(q))return '';return '<section class="group" data-gid="'+esc(g.id)+'" draggable="'+(!q)+'"><div class="grouphead" draggable="'+(!q)+'"><span class="mark" style="color:'+esc(g.color)+'">'+esc(g.icon||'◆')+'</span><h2 title="'+esc(g.name)+'">'+esc(g.name)+'</h2><div class="actions"><button class="mini editgroup" title="ジャンル編集" data-gid="'+esc(g.id)+'">✎</button></div></div><div class="cards">'+(links.length?links.map(l=>{let host='';try{host=new URL(l.url).hostname}catch{}const slug=host.endsWith('.karin-lab.com')?host.slice(0,-'.karin-lab.com'.length):'';const intranetIcon=intranetIconSlug(l,host);const iconSrc=intranetIcon?'/app-icon/'+intranetIcon+'.svg':slug?'/app-icon/'+encodeURIComponent(slug)+'.svg':host?'/favicon?domain='+encodeURIComponent(host):'/app-icon/intranet.svg';const ico='<img class="favicon" src="'+iconSrc+'" alt="" loading="lazy"><span class="genericicon fallbackicon" hidden>'+esc(l.title.slice(0,1).toUpperCase())+'</span>';return '<article class="link" draggable="'+(!q)+'" data-lid="'+esc(l.id)+'" data-gid="'+esc(g.id)+'">'+ico+'<a href="'+esc(l.url)+'" target="_blank" rel="noopener noreferrer"><div class="details"><div class="name">'+esc(l.title)+'</div><div class="desc">'+esc(l.description||host)+'</div></div></a><button class="mini editlink" data-lid="'+esc(l.id)+'" data-gid="'+esc(g.id)+'" title="編集">✎</button></article>'}).join(''):'<div class="empty">ここへドロップ</div>')+'</div></section>'}).join('');$('board').innerHTML='<div class="fixed-column" aria-label="全タブ共通">'+renderGroups(state.filter(g=>g.desktopId==='common'))+'</div><div class="tab-content">'+renderGroups(state.filter(g=>(g.desktopId||'main')===activeTab))+'<button class="addgroup-tile" type="button" data-action="add-group"><span class="addgroup-symbol">＋</span><strong>グループを追加</strong><small>リンクを用途別にまとめる</small></button></div>';document.querySelector('.fixed-column').scrollTop=fixedScroll;}
+
+// One extra wheel action at a desktop boundary advances exactly one tab.
+// Wait for the wheel burst to end after switching, including trackpad momentum.
+let tabWheelLocked=false,tabWheelIdle=null;
+function handleDesktopWheel(e){
+ if(e.ctrlKey||e.metaKey||e.shiftKey||Math.abs(e.deltaY)<=Math.abs(e.deltaX)||!e.deltaY||dragged||$('dialog').open)return;
+ const panel=e.target.closest('.tab-content');
+ if(!panel||!matchMedia('(min-width:571px)').matches)return;
+ clearTimeout(tabWheelIdle);
+ tabWheelIdle=setTimeout(()=>{tabWheelLocked=false},280);
+ if(tabWheelLocked){e.preventDefault();return}
+ const down=e.deltaY>0;
+ const atEdge=down?panel.scrollTop+panel.clientHeight>=panel.scrollHeight-1:panel.scrollTop<=1;
+ if(!atEdge)return; // Let the browser finish scrolling before changing desktops.
+ const index=tabs.findIndex(t=>t.id===activeTab),next=tabs[index+(down?1:-1)];
+ if(!next)return; // Stop at the first and last tabs; do not wrap.
+ e.preventDefault();
+ tabWheelLocked=true;
+ selectTab(next.id,down?'top':'bottom');
+}
+$('board').addEventListener('wheel',handleDesktopWheel,{passive:false});
+
 function desktopOptions(selected){return '<label for="f_desktop">表示先</label><select id="f_desktop"><option value="common" '+(selected==='common'?'selected':'')+'>共通（左端固定）</option>'+tabs.map(t=>'<option value="'+esc(t.id)+'" '+(selected===t.id?'selected':'')+'>'+esc(t.name)+'</option>').join('')+'</select>'}
 function findGroup(id){return state.find(g=>g.id===id)}function findLink(gid,lid){return findGroup(gid)?.links.find(l=>l.id===lid)}
 function edit(kind,gid,lid){mode=kind;target={gid,lid};let obj=kind==='group'?findGroup(gid):kind==='link'?findLink(gid,lid):null;$('dialogTitle').textContent=kind==='group'?'グループを編集':kind==='newgroup'?'グループを追加':kind==='newlink'?'リンクを追加':'リンクを編集';$('deleteItem').style.display=obj?'inline':'none';const f=(name,value,label)=>'<label for="f_'+name+'">'+label+'</label><input id="f_'+name+'" name="'+name+'" value="'+esc(value)+'" required>';if(kind==='group'||kind==='newgroup')$('fields').innerHTML=f('title',obj?.name||'','ジャンル名')+f('icon',obj?.icon||'◆','アイコン（絵文字など）')+f('color',obj?.color||'#84b6da','見出し色（#RRGGBB）')+desktopOptions(obj ? (obj.desktopId||'main') : activeTab);else $('fields').innerHTML=f('title',obj?.title||'','タイトル')+f('url',obj?.url||'https://','リンク先URL')+f('description',obj?.description||'','説明（省略可）').replace('name="description"','name="description"')+'<label for="f_group">ジャンル</label><select id="f_group" style="width:100%;padding:9px;background:#344156;color:white;border-radius:6px">'+state.map(g=>'<option value="'+esc(g.id)+'" '+((gid===g.id)?'selected':'')+'>'+esc(g.name)+'</option>').join('')+'</select>';$('f_description')?.removeAttribute('required');$('formHint').textContent='保存すると他の端末でも同じ配置になります。';$('dialog').showModal();}
