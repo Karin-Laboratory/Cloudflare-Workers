@@ -60,13 +60,14 @@ main{padding-top:13px}
 @media(max-width:570px){header{padding:9px 11px;gap:8px}main{padding-top:9px}}
 /* Persistent first column and four tab-controlled columns */
 .desktop-tabs{max-width:calc(1800px * .8);margin-left:max(calc((100% - 1800px)/2 + 360px),calc((100% - 46px)/5 + 23px));margin-right:23px;padding-left:0}
-.board{grid-template-columns:repeat(5,minmax(0,1fr));align-items:start}
-.fixed-column{grid-column:1;min-width:0;display:flex;flex-direction:column;gap:24px}
-.tab-content{grid-column:2 / span 4;min-width:0;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:24px 13px;align-items:start}
+/* Both panels occupy the same grid row, but size themselves independently. */
+.board{grid-template-columns:repeat(5,minmax(0,1fr));grid-template-rows:auto;align-items:start}
+.fixed-column{grid-column:1;grid-row:1;align-self:start;min-width:0;min-height:100%;display:flex;flex-direction:column;gap:24px;padding:8px;border-radius:10px;background:#242629;border:1px solid #303237}
+.tab-content{grid-column:2 / span 4;grid-row:1;align-self:start;min-width:0;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:24px 13px;align-items:start}
 @media(max-width:1320px){.board{grid-template-columns:repeat(4,minmax(0,1fr))}.tab-content{grid-column:2 / span 3;grid-template-columns:repeat(3,minmax(0,1fr))}.desktop-tabs{margin-left:calc((100% - 46px)/4 + 23px)}}
 @media(max-width:1020px){.board{grid-template-columns:repeat(3,minmax(0,1fr))}.tab-content{grid-column:2 / span 2;grid-template-columns:repeat(2,minmax(0,1fr))}.desktop-tabs{margin-left:calc((100% - 46px)/3 + 23px)}}
 @media(max-width:780px){.board{grid-template-columns:repeat(2,minmax(0,1fr))}.tab-content{grid-column:2;grid-template-columns:minmax(0,1fr)}.desktop-tabs{margin-left:calc((100% - 46px)/2 + 23px)}}
-@media(max-width:570px){.board{grid-template-columns:1fr}.fixed-column,.tab-content{grid-column:1}.tab-content{grid-template-columns:1fr}.desktop-tabs{margin-left:11px;margin-right:11px}}
+@media(max-width:570px){.board{grid-template-columns:1fr}.fixed-column{grid-column:1;grid-row:1;min-height:0}.tab-content{grid-column:1;grid-row:2;grid-template-columns:1fr}.desktop-tabs{margin-left:11px;margin-right:11px}}
 </style></head><body><header><strong><span>✦</span> Karin Homepage</strong><span class="clock" id="clock"></span><input id="search" type="search" placeholder="リンクを検索 / URLをグループにドラッグ"><button id="addLink" class="primary">＋ リンク追加</button><button id="mobileSort" title="並び順">↕</button></header><nav id="desktopTabs" class="desktop-tabs" role="tablist" aria-label="デスクトップの切り替え"></nav>
 <main><div class="board" id="board"></div></main><div class="toast" id="toast"></div>
 <dialog id="dialog"><form id="editForm"><h2 id="dialogTitle"></h2><div id="fields"></div><p class="hint" id="formHint"></p><menu><button type="button" id="deleteItem">削除</button><button type="button" id="cancelDialog">キャンセル</button><button type="submit" class="primary">保存</button></menu></form></dialog>
