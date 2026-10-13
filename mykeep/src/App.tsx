@@ -399,15 +399,12 @@ export default function App() {
       setExternalLinkOver(false);
       const data = event.dataTransfer;
       if (!data) return;
-      let link = droppedBrowserLink(data);
+      if (!link && data.files.length === 1 && data.files[0].name.toLowerCase().endsWith(".url")) {
       // Chrome may expose a dragged address as an Internet Shortcut file.
       if (!link && data.files.length === 1 && /\\.(url|webloc)$/i.test(data.files[0].name)) {
-        try {
-          const content = await data.files[0].text();
-          const match = content.match(/^URL=(https?:\\/\\/\\S+)/im)
-            ?? content.match(/<string>(https?:\\/\\/[^<]+)<\\/string>/i);
+          const match = content.split("\n").map(line => line.trim()).find(line => line.startsWith("URL=http"));
           if (match) {
-            const url = new URL(match[1].trim());
+            const url = new URL(match.slice(4).trim());
             link = { url: url.href, title: url.hostname };
           }
         } catch { /* Show diagnostics below. */ }
