@@ -365,39 +365,87 @@ export default function App() {
   }
   const [externalLinkOver, setExternalLinkOver] = useState(false);
   const externalLinkSavingRef = useRef(false);
-  // Browser address-bar drags may advertise Files/DownloadURL, not just text/uri-list.
-  // Handle all external drops here; internal MyKeep card moves retain their handlers.
-  function isExternalDrag(): boolean {
-    return !draggingNoteRef.current;
-  }
-  async function dropBrowserLink(event: DragEvent<HTMLElement>) {
-    if (!isExternalDrag()) return;
-    event.preventDefault();
-    event.stopPropagation();
-    setExternalLinkOver(false);
-    const link = droppedBrowserLink(event.dataTransfer);
-    if (!link) {
-      setError("URLを読み取れませんでした。Chromeのアドレスバー左側のアイコンをドラッグしてください。");
-      return;
-    }
-    if (externalLinkSavingRef.current || working) return;
-    externalLinkSavingRef.current = true;
-    setError("");
-    try {
-      await api<{ note: Note }>("/api/notes", {
-        method: "POST",
-        body: JSON.stringify({ ...emptyNote, title: link.title, url: link.url, labels: labelFilter ? [labelFilter] : [] }),
-      });
-      reloadList();
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "リンクを保存できませんでした。");
-    } finally {
-      externalLinkSavingRef.current = false;
-    }
-  }
+  const [linkDropStatus, setLinkDropStatus] = useState("");
+  const browserDropBusyRef = useRef(false);
+  const dropContextRef = useRef({ working: false, labelFilter: "" });
+  useEffect(() => {
+    let dragDepth = 0;
+    const internalDrag = (data: DataTransfer | null) =>
+      !!draggingNoteRef.current || !!data?.types.includes("application/x-mykeep-note");
+    const onEnter = (event: globalThis.DragEvent) => {
+      if (internalDrag(event.dataTransfer)) return;
+      event.preventDefault();
+      dragDepth++;
+      setExternalLinkOver(true);
+    };
+    const onOver = (event: globalThis.DragEvent) => {
+      if (internalDrag(event.dataTransfer)) return;
+      event.preventDefault();
+      if (event.dataTransfer) event.dataTransfer.dropEffect = "copy";
+      setExternalLinkOver(true);
+    };
+    const onLeave = (event: globalThis.DragEvent) => {
+      if (internalDrag(event.dataTransfer)) return;
+      dragDepth = Math.max(0, dragDepth - 1);
+      if (!dragDepth) setExternalLinkOver(false);
+    };
+    const onDrop = async (event: globalThis.DragEvent) => {
+      if (internalDrag(event.dataTransfer)) return;
+      event.preventDefault();
+      event.stopPropagation();
+      dragDepth = 0;
+      setExternalLinkOver(false);
+      const data = event.dataTransfer;
+      if (!data) return;
+      let link = droppedBrowserLink(data);
+      // Chrome may expose a dragged address as an Internet Shortcut file.
+      if (!link && data.files.length === 1 && /\\.(url|webloc)$/i.test(data.files[0].name)) {
+        try {
+          const content = await data.files[0].text();
+          const match = content.match(/^URL=(https?:\\/\\/\\S+)/im)
+            ?? content.match(/<string>(https?:\\/\\/[^<]+)<\\/string>/i);
+          if (match) {
+            const url = new URL(match[1].trim());
+            link = { url: url.href, title: url.hostname };
+          }
+        } catch { /* Show diagnostics below. */ }
+      }
+      if (!link) {
+        setLinkDropStatus(`URLを読み取れません（形式: ${Array.from(data.types).join(", ") || "不明"}）。`);
+        return;
+      }
+      if (browserDropBusyRef.current || dropContextRef.current.working) return;
+      browserDropBusyRef.current = true;
+      setLinkDropStatus("リンクを保存しています…");
+      try {
+        await api<{ note: Note }>("/api/notes", {
+          method: "POST",
+          body: JSON.stringify({ ...emptyNote, title: link.title, url: link.url,
+            labels: dropContextRef.current.labelFilter ? [dropContextRef.current.labelFilter] : [] }),
+        });
+        setLinkDropStatus(`リンクを保存しました: ${link.title}`);
+        reloadList();
+      } catch (cause) {
+        setLinkDropStatus(cause instanceof Error ? `保存失敗: ${cause.message}` : "リンクの保存に失敗しました。");
+      } finally {
+        browserDropBusyRef.current = false;
+      }
+    };
+    window.addEventListener("dragenter", onEnter, true);
+    window.addEventListener("dragover", onOver, true);
+    window.addEventListener("dragleave", onLeave, true);
+    window.addEventListener("drop", onDrop, true);
+    return () => {
+      window.removeEventListener("dragenter", onEnter, true);
+      window.removeEventListener("dragover", onOver, true);
+      window.removeEventListener("dragleave", onLeave, true);
+      window.removeEventListener("drop", onDrop, true);
+    };
+  }, []);
   const [view, setView] = useState<View>("active");
   const [search, setSearch] = useState("");
   const [labelFilter, setLabelFilter] = useState("");
+  dropContextRef.current = { working, labelFilter };
   const [availableLabels, setAvailableLabels] = useState<string[]>([]);
   const [counts, setCounts] = useState<SidebarCounts | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -1684,9 +1732,6 @@ export default function App() {
           </div>
         </aside>
         <div className={`main-content${externalLinkOver ? " external-link-over" : ""}`} ref={mainContentRef}
-          onDragOver={(event) => { if (isExternalDrag()) { event.preventDefault(); event.dataTransfer.dropEffect = "copy"; setExternalLinkOver(true); } }}
-          onDragLeave={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node)) setExternalLinkOver(false); }}
-          onDrop={(event) => { void dropBrowserLink(event); }}
           >
       {(pullDistance > 0 || pullRefreshing) && <div className="pull-indicator" role="status" style={{ height: pullRefreshing ? 38 : Math.min(pullDistance, 80) }}>↻ {pullRefreshing ? "更新中…" : pullDistance >= 70 ? "離して更新" : "引っ張って更新"}</div>}
       {view === "trash" && <div className="trash-header">
