@@ -155,16 +155,21 @@ function ImageViewer({ images, initialIndex, onClose }: { images: ViewerImage[];
 
 /** Extract browser-address/link drags without interfering with MyKeep card moves. */
 function droppedBrowserLink(data: DataTransfer): { url: string; title: string } | null {
-  const uriList = data.getData("text/uri-list").split(/\r?\n/).find((line) => line.trim() && !line.startsWith("#"))?.trim() ?? "";
+  const uri = data.getData("text/uri-list").split(/\r?\n/).find((line) => line.trim() && !line.startsWith("#"))?.trim() ?? "";
   const moz = data.getData("text/x-moz-url").split(/\r?\n/);
   const plain = data.getData("text/plain").trim();
-  const candidate = uriList || moz[0] || plain;
-  try {
-    const url = new URL(candidate);
-    if (!["https:", "http:"].includes(url.protocol)) return null;
-    const title = uriList ? (plain && plain !== uriList && !/^https?:\/\//i.test(plain) ? plain : "") : moz[1] ?? "";
-    return { url: url.href, title: title.slice(0, 200) || url.hostname };
-  } catch { return null; }
+  const html = data.getData("text/html");
+  const href = html.match(/<a\b[^>]*\bhref\s*=\s*["']([^"']+)["']/i)?.[1] ?? "";
+  const candidates = [uri, moz[0], plain, href];
+  for (const candidate of candidates) {
+    try {
+      const url = new URL(candidate);
+      if (url.protocol !== "http:" && url.protocol !== "https:") continue;
+      const title = (moz[1] || (plain && plain !== candidate && !/^https?:\/\//i.test(plain) ? plain : "") || url.hostname).slice(0, 200);
+      return { url: url.href, title };
+    } catch { /* Try the next browser drag format. */ }
+  }
+  return null;
 }
 
 function labelKey(name: string): string {
@@ -360,17 +365,22 @@ export default function App() {
   }
   const [externalLinkOver, setExternalLinkOver] = useState(false);
   const externalLinkSavingRef = useRef(false);
-  function isBrowserLinkDrag(event: DragEvent<HTMLElement>): boolean {
-    return !draggingNoteRef.current && !Array.from(event.dataTransfer.types).includes("Files")
-      && Array.from(event.dataTransfer.types).some((type) =>
-        ["text/uri-list", "text/plain", "text/x-moz-url"].includes(type));
+  // Browser address-bar drags may advertise Files/DownloadURL, not just text/uri-list.
+  // Handle all external drops here; internal MyKeep card moves retain their handlers.
+  function isExternalDrag(): boolean {
+    return !draggingNoteRef.current;
   }
   async function dropBrowserLink(event: DragEvent<HTMLElement>) {
-    if (!isBrowserLinkDrag(event)) return;
+    if (!isExternalDrag()) return;
     event.preventDefault();
+    event.stopPropagation();
     setExternalLinkOver(false);
     const link = droppedBrowserLink(event.dataTransfer);
-    if (!link || externalLinkSavingRef.current || working) return;
+    if (!link) {
+      setError("URLを読み取れませんでした。Chromeのアドレスバー左側のアイコンをドラッグしてください。");
+      return;
+    }
+    if (externalLinkSavingRef.current || working) return;
     externalLinkSavingRef.current = true;
     setError("");
     try {
@@ -1674,7 +1684,7 @@ export default function App() {
           </div>
         </aside>
         <div className={`main-content${externalLinkOver ? " external-link-over" : ""}`} ref={mainContentRef}
-          onDragOver={(event) => { if (isBrowserLinkDrag(event)) { event.preventDefault(); event.dataTransfer.dropEffect = "copy"; setExternalLinkOver(true); } }}
+          onDragOver={(event) => { if (isExternalDrag()) { event.preventDefault(); event.dataTransfer.dropEffect = "copy"; setExternalLinkOver(true); } }}
           onDragLeave={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node)) setExternalLinkOver(false); }}
           onDrop={(event) => { void dropBrowserLink(event); }}
           >
