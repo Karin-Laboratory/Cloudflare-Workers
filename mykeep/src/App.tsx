@@ -1738,6 +1738,8 @@ export default function App() {
         <p>ゴミ箱内のメモは7日後に削除されます。</p>
         <button type="button" className="danger" disabled={working || importing || exporting || !counts?.views.trash} onClick={() => void clearTrash()}>ゴミ箱を空にする</button>
       </div>}
+      {externalLinkOver && <div role="status" style={{position:"fixed", zIndex:10000, inset:16, pointerEvents:"none", border:"4px dashed #5aa9ff", borderRadius:16, background:"rgba(35,90,155,.15)", display:"grid", placeItems:"center"}}><strong style={{padding:20, background:"#17304d", color:"#fff", borderRadius:12}}>🔗 ここにドロップしてリンクを追加</strong></div>}
+      {linkDropStatus && <p role="status" style={{padding:12, border:"1px solid currentColor", borderRadius:8}}>{linkDropStatus}</p>}
       {bulkResult && <p className={bulkResult.failed ? "error" : "bulk-result"} role={bulkResult.failed ? "alert" : "status"}>{bulkResult.message}</p>}
       {error && !draft && <p className="error" role="alert">{error}</p>}
       {!loading && notes.length === 0 && <p className="empty">{search.trim() || labelFilter ? "該当するメモはありません。" : view === "active" ? "メモはまだありません。" : view === "unpinned" ? "ピンなしのメモはありません。" : view === "images" ? "画像ありのメモはありません。" : view === "imageless" ? "画像なしのメモはありません。" : view === "archived" ? "アーカイブはありません。" : "ゴミ箱は空です。"}</p>}
