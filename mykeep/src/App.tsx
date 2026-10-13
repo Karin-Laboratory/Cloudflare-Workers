@@ -349,6 +349,37 @@ export default function App() {
   const [externalTargetLevel, setExternalTargetLevel] = useState<number | null>(null);
   const [linkDropStatus, setLinkDropStatus] = useState("");
   const [linkDropStatusKind, setLinkDropStatusKind] = useState<"saving" | "success" | "error">("saving");
+  const [titleEditTarget, setTitleEditTarget] = useState<{ id: string; url: string; title: string } | null>(null);
+  const [titleEditText, setTitleEditText] = useState("");
+  const [titleEditSaving, setTitleEditSaving] = useState(false);
+  const [titleEditError, setTitleEditError] = useState("");
+  function openLinkTitleEditor(note: Pick<Note, "id" | "url" | "title">) {
+    setTitleEditTarget({ id: note.id, url: note.url, title: note.title });
+    setTitleEditText(note.title === new URL(note.url).hostname ? "" : note.title);
+    setTitleEditError("");
+  }
+  async function saveLinkTitle(event: FormEvent) {
+    event.preventDefault();
+    const target = titleEditTarget;
+    const title = titleEditText.trim();
+    if (!target || !title || titleEditSaving) return;
+    setTitleEditSaving(true);
+    setTitleEditError("");
+    try {
+      const { note: current } = await api<{ note: Note }>(`/api/notes/${target.id}`);
+      if (current.url !== target.url || current.deleted_at || current.title !== target.title)
+        throw new Error("保存前にメモが変更されました。再読み込みして確認してください。");
+      await api<{ note: Note }>(`/api/notes/${target.id}`, {
+        method: "PATCH", body: JSON.stringify({ title }),
+      });
+      setTitleEditTarget(null);
+      setLinkDropStatusKind("success");
+      setLinkDropStatus("タイトルを保存しました");
+      reloadList();
+    } catch (cause) {
+      setTitleEditError(cause instanceof Error ? cause.message : "タイトルを保存できませんでした。");
+    } finally { setTitleEditSaving(false); }
+  }
   const browserDropBusyRef = useRef(false);
   const dropContextRef = useRef({ working: false, labelFilter: "", headings: pinHeadings });
   useEffect(() => {
@@ -432,22 +463,30 @@ export default function App() {
             pinned: destinationLevel > 0, pin_level: destinationLevel,
             labels: dropContextRef.current.labelFilter ? [dropContextRef.current.labelFilter] : [] }),
         });
-        // Keep the drop immediate; resolve a real page title asynchronously if
-        // Chrome supplied only the URL. Never overwrite a title the user edited.
+        // Authenticated ChatGPT conversations do not expose their private
+        // title to a Cloudflare server. The native browser drag may carry only
+        // the URL. Offer a one-field correction rather than assigning a generic
+        // sign-in title or borrowing another chat's title.
         if (!link.hasPageTitle) {
           const originalTitle = link.title;
           const originalUrl = link.url;
-          void getLinkPreview(originalUrl).then(async preview => {
-            if (!preview) return;
-            const pageTitle = displayLinkTitle(preview, "").trim().slice(0, 300);
-            if (!pageTitle || pageTitle === originalTitle || pageTitle.toLowerCase() === new URL(originalUrl).hostname.toLowerCase()) return;
-            const { note: current } = await api<{ note: Note }>(`/api/notes/${created.id}`);
-            if (current.deleted_at || current.title !== originalTitle || current.url !== originalUrl) return;
-            await api<{ note: Note }>(`/api/notes/${created.id}`, {
-              method: "PATCH", body: JSON.stringify({ title: pageTitle }),
-            });
-            reloadList();
-          }).catch(() => { /* Some pages restrict metadata access; retain the URL and hostname. */ });
+          const promptForTitle = () => openLinkTitleEditor({ id: created.id, url: originalUrl, title: originalTitle });
+          if (new URL(originalUrl).hostname === "chatgpt.com") {
+            promptForTitle();
+          } else {
+            void getLinkPreview(originalUrl).then(async preview => {
+              const proposed = preview ? displayLinkTitle(preview, "").trim().slice(0, 300) : "";
+              if (!proposed || proposed === originalTitle || proposed.toLowerCase() === new URL(originalUrl).hostname.toLowerCase()) {
+                promptForTitle(); return;
+              }
+              const { note: current } = await api<{ note: Note }>(`/api/notes/${created.id}`);
+              if (current.deleted_at || current.title !== originalTitle || current.url !== originalUrl) return;
+              await api<{ note: Note }>(`/api/notes/${created.id}`, {
+                method: "PATCH", body: JSON.stringify({ title: proposed }),
+              });
+              reloadList();
+            }).catch(promptForTitle);
+          }
         }
         if (destinationLevel > 0) setPinCollapsed(destinationLevel, false);
         const groupName = destinationLevel > 0
@@ -1702,6 +1741,8 @@ export default function App() {
             <button disabled={working} onClick={() => restore(note)}>復元</button>
             <button className="danger" disabled={working} onClick={() => permanentlyRemove(note)}>完全削除</button>
           </> : <>
+            {note.url && note.title === (() => { try { return new URL(note.url).hostname; } catch { return ""; } })() &&
+              <button type="button" disabled={working} onClick={() => openLinkTitleEditor(note)}>✎ タイトル</button>}
             <button disabled={working} onClick={() => updateFlag(note, "archived")}>{note.archived ? "戻す" : "アーカイブ"}</button>
             {note.archived && <button className="trash-action" disabled={working} onClick={() => moveCardToTrash(note)}>ゴミ箱</button>}
           </>}
@@ -1832,6 +1873,23 @@ export default function App() {
         </div>
       </div>
 
+      {titleEditTarget && <section className="link-title-editor" role="dialog" aria-label="リンクのタイトルを入力">
+        <div className="link-title-editor-heading">
+          <strong>✎ ページタイトルを入力</strong>
+          <button type="button" aria-label="閉じる" disabled={titleEditSaving} onClick={() => setTitleEditTarget(null)}>×</button>
+        </div>
+        <p>このページからタイトルを自動取得できませんでした。URLは保存済みです。</p>
+        <form onSubmit={(event) => void saveLinkTitle(event)}>
+          <input autoFocus aria-label="ページタイトル" value={titleEditText} maxLength={300}
+            placeholder="例：BS4Kチューナ" disabled={titleEditSaving}
+            onChange={(event) => setTitleEditText(event.target.value)} />
+          <div className="link-title-editor-actions">
+            <button type="submit" className="primary" disabled={titleEditSaving || !titleEditText.trim()}>{titleEditSaving ? "保存中…" : "タイトルを保存"}</button>
+            <button type="button" disabled={titleEditSaving} onClick={() => setTitleEditTarget(null)}>後で</button>
+          </div>
+        </form>
+        {titleEditError && <p role="alert" className="error">{titleEditError}</p>}
+      </section>}
       {selecting && <section className="bulk-toolbar" aria-label="一括操作">
         <div className="bulk-selection-controls">
           <strong aria-live="polite">{selectedNoteIds.size}件選択</strong>
