@@ -445,7 +445,6 @@ export default function App() {
   const [view, setView] = useState<View>("active");
   const [search, setSearch] = useState("");
   const [labelFilter, setLabelFilter] = useState("");
-  dropContextRef.current = { working, labelFilter };
   const [availableLabels, setAvailableLabels] = useState<string[]>([]);
   const [counts, setCounts] = useState<SidebarCounts | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -456,6 +455,7 @@ export default function App() {
   const [pullDistance, setPullDistance] = useState(0);
   const [pullRefreshing, setPullRefreshing] = useState(false);
   const [working, setWorking] = useState(false);
+  dropContextRef.current = { working, labelFilter };
   const [undoAction, setUndoAction] = useState<UndoAction | null>(null);
   const [undoing, setUndoing] = useState(false);
   const undoingRef = useRef(false);
