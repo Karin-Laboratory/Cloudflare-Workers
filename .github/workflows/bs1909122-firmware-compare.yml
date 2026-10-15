@@ -1,0 +1,64 @@
+name: Firmware comparison research
+
+on:
+  push:
+    branches:
+      - research/bs1909122-firmware-compare
+
+permissions:
+  contents: read
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - name: Compare publicly released firmware packages
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import urllib.request, urllib.parse, hashlib, re, io, zipfile, html, json
+          from pathlib import Path
+          from urllib.error import HTTPError, URLError
+
+          out = Path('/tmp/bs1909122')
+          out.mkdir(exist_ok=True)
+          urls = {
+              'sharp_info': 'https://www.sharp.co.jp/support/aquos/update/procedure_as1-stb.html',
+              'sharp_info_alt': 'https://jp.sharp.co.jp/support/aquos/update/procedure_as1-stb.html',
+              'maspro_info': 'https://www.maspro.co.jp/support/prod/tnr/update/dt814/3139/',
+              'iodata_info': 'https://www.iodata.jp/lib/software/h/2171.htm',
+              'maspro_fw': 'https://www.maspro.co.jp/doc/sft/dt814/BS1909122.zip',
+          }
+          def fetch(url, limit):
+              req=urllib.request.Request(url,headers={'User-Agent':'Mozilla/5.0 (compatible; firmware-research/1.0)'})
+              with urllib.request.urlopen(req,timeout=45) as f:
+                  actual=f.geturl(); ct=f.headers.get('content-type',''); data=f.read(limit+1)
+                  if len(data)>limit: raise ValueError(f'over limit {limit}')
+                  return actual,ct,data
+          for name,url in urls.items():
+              print('\n###', name, url,flush=True)
+              try:
+                  actual,ct,data=fetch(url,125*1024*1024 if name.endswith('_fw') else 4*1024*1024)
+                  print('STATUS OK URL',actual,'content-type',ct,'bytes',len(data),'sha256',hashlib.sha256(data).hexdigest())
+                  if not name.endswith('_fw'):
+                      page=data.decode('utf-8','replace')
+                      (out/(name+'.html')).write_text(page)
+                      links=re.findall(r'''(?:href|src)\s*=\s*["']([^"']+)["']''',page,re.I)
+                      relevant=[urllib.parse.urljoin(actual,html.unescape(q)) for q in links if re.search(r'zip|exe|download|\.js|\.sig|\.rvp|update|firmware',q,re.I)]
+                      print('RELEVANT LINKS:',json.dumps(relevant[:45],ensure_ascii=False))
+                      for term in ['BS1909122','HD30_BS1909122','HD30IO','hvt4kbc','download','\.zip']:
+                          m=re.search(re.escape(term),page,re.I)
+                          if m:print('MATCH',term,re.sub(r'\s+',' ',page[max(0,m.start()-180):m.end()+220]))
+                  else:
+                      (out/'maspro.zip').write_bytes(data)
+                      if zipfile.is_zipfile(io.BytesIO(data)):
+                          with zipfile.ZipFile(io.BytesIO(data)) as z:
+                              for f in z.infolist():
+                                  print('ZIP',f.filename,'size',f.file_size,'compressed',f.compress_size,'CRC',hex(f.CRC))
+                                  if f.file_size<120*1024*1024 and not f.is_dir():
+                                      d=z.read(f)
+                                      print('MEMBER SHA256',f.filename,hashlib.sha256(d).hexdigest(),'magic',d[:48].hex())
+                      else:print('NOT ZIP magic',data[:64].hex())
+              except Exception as ex: print('FAIL',type(ex).__name__,str(ex)[:300],flush=True)
+          PY
