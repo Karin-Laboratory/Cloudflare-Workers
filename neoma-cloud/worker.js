@@ -32,7 +32,8 @@ export default (function serverMain(){
        const row=await env.DB.prepare('SELECT revision,object_key,sha256 FROM neoma_cloud_state WHERE owner=?').bind(OWNER).first();
        if(!row)return json({error:'No cloud vault yet'},404);
        const obj=await env.BUCKET.get(row.object_key);if(!obj)return json({error:'Snapshot missing'},503);
-       return new Response(obj.body,{headers:{'Content-Type':'application/json; charset=utf-8','Content-Encoding':'gzip','Cache-Control':'no-store','ETag':'"'+row.revision+'"'}});
+       const uncompressed=obj.body.pipeThrough(new DecompressionStream('gzip'));
+       return new Response(uncompressed,{headers:{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','ETag':'"'+row.revision+'"'}});
      }
      if(path==='/__cloud/state'&&req.method==='PUT'){
        if(req.headers.get('Origin')&&req.headers.get('Origin')!==url.origin)return json({error:'origin mismatch'},403);
