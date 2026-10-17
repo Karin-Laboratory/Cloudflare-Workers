@@ -441,7 +441,7 @@ export default (function serverMain(){
        hubLinks+=links.filter(x=>coreNames.has(x)).length;
      }
    }
-   if(satellites!==55||hubLinks!==48)throw Error('Unexpected constellation topology '+satellites+'/'+hubLinks);
+   if(satellites!==55||hubLinks!==40)throw Error('Unexpected constellation topology '+satellites+'/'+hubLinks);
    const raw=new TextEncoder().encode(JSON.stringify(data));
    if(raw.length>max)throw Error('Vault snapshot too large');
    const backupSource=await env.BUCKET.get(current.object_key);
