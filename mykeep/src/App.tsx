@@ -1853,13 +1853,13 @@ export default function App() {
         {view !== "unpinned" && pinRows.map(({ level, notes: rowNotes }) => (view === "active" || rowNotes.length > 0) && (layoutMode !== "tabs" || view !== "active" || !!labelFilter || activePinTab === level) &&
           <section className={`pin-row${dropLevel === level ? " drag-over-row" : ""}${externalLinkOver && externalTargetLevel === level ? " external-drop-target" : ""}`} data-pin-level={level}
             onDragOver={(event) => { if (draggingNoteRef.current && !working) { event.preventDefault(); setDropNoteId(null); setDropLevel(level); } }}
-            onDrop={(event) => { if (draggingNoteRef.current) { event.preventDefault(); setPinCollapsed(level, false); void dropCard(level, null); } }} key={level} aria-label={`${pinHeadings[level - 1]}のピン留めメモ`}>
+            onDrop={(event) => { if (draggingNoteRef.current) { event.preventDefault(); if (layoutMode !== "tabs") setPinCollapsed(level, false); void dropCard(level, null); } }} key={level} aria-label={`${pinHeadings[level - 1]}のピン留めメモ`}>
             <div className="pin-row-heading">
-              <button type="button" className="pin-collapse" aria-expanded={!collapsedPins.includes(level)} aria-controls={`pin-content-${level}`}
+              {layoutMode !== "tabs" && <button type="button" className="pin-collapse" aria-expanded={!collapsedPins.includes(level)} aria-controls={`pin-content-${level}`}
                 aria-label={`${pinHeadings[level - 1]}を${collapsedPins.includes(level) ? "展開" : "折りたたむ"}`}
                 onClick={() => setPinCollapsed(level, !collapsedPins.includes(level))}>
                 <span aria-hidden="true">⌄</span>
-              </button>
+              </button>}
               {editingPinHeading === level ? <form onSubmit={savePinHeading}>
                 <input autoFocus aria-label={`${level}段目の見出し`} maxLength={60} required
                   value={pinHeadingDraft} disabled={pinHeadingSaving}
@@ -1874,8 +1874,8 @@ export default function App() {
               </h2>}
             </div>
             {pinHeadingError && (editingPinHeading === level || !pinHeadingsLoaded) && <p role="alert">{pinHeadingError}</p>}
-            <div id={`pin-content-${level}`} className={`pin-blind${collapsedPins.includes(level) ? " collapsed" : ""}`}
-              inert={collapsedPins.includes(level)} aria-hidden={collapsedPins.includes(level)}>
+            <div id={`pin-content-${level}`} className={`pin-blind${layoutMode !== "tabs" && collapsedPins.includes(level) ? " collapsed" : ""}`}
+              inert={layoutMode !== "tabs" && collapsedPins.includes(level)} aria-hidden={layoutMode !== "tabs" && collapsedPins.includes(level)}>
               <div className="pin-blind-inner">
                 {rowNotes.length > 0 ? <div className="grid">{rowNotes.map(renderNoteCard)}</div>
                   : <p className="pin-row-empty">この段にピン留めしたメモはありません。</p>}
