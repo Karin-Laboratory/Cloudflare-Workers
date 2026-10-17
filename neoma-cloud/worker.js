@@ -158,4 +158,33 @@ export default (function serverMain(){
        const gzip=new Uint8Array(await new Response(new Blob([bytes]).stream().pipeThrough(new CompressionStream('gzip'))).arrayBuffer());
        const next=expected+1,now=Date.now(),key='cloud/state/'+next+'-'+crypto.randomUUID()+'.json.gz';
        await env.BUCKET.put(key,gzip,{httpMetadata:{contentType:'application/gzip'},customMetadata:{sha256:hash}});
-       const stmt=expected===0?env.DB.prepare('INSERT INTO neoma_cloud_state (owner,revision,object_key,sha256,size,updated_at) VALUES (?,?,?,?,?,?) ON CO --- TRUNCATED --- 25,968 chars
+       const stmt=expected===0?env.DB.prepare('INSERT INTO neoma_cloud_state (owner,revision,object_key,sha256,size,updated_at) VALUES (?,?,?,?,?,?) ON CONFLICT(owner) DO NOTHING').bind(OWNER,next,key,hash,bytes.length,now):env.DB.prepare('UPDATE neoma_cloud_state SET revision=?,object_key=?,sha256=?,size=?,updated_at=? WHERE owner=? AND revision=?').bind(next,key,hash,bytes.length,now,OWNER,expected);
+       const change=await stmt.run();if(!change.meta.changes){await env.BUCKET.delete(key);return json({error:'conflict'},409)}
+       await env.DB.prepare('INSERT INTO neoma_cloud_versions(owner,revision,object_key,sha256,created_at) VALUES (?,?,?,?,?)').bind(OWNER,next,key,hash,now).run();
+       return json({revision:next,hash,size:bytes.length});
+     }
+     return json({error:'Not found'},404);
+   }
+   // Preserve the existing Neoma application, legacy synchronization API, and static assets.
+   const res=await env.UPSTREAM.fetch(req);
+   if(req.method==='GET'&&path==='/Karin-Lab-Qiita-Hatena-31.zip'&&res.ok){
+     const headers=new Headers(res.headers);
+     headers.set('Content-Disposition','attachment; filename="Karin-Lab-Qiita-Hatena-31.zip"');
+     headers.set('Content-Type','application/zip');
+     headers.set('Cache-Control','private, no-store');
+     return new Response(res.body,{status:res.status,headers});
+   }
+   if(req.method==='GET'&&(path==='/'||path==='/index.html')&&res.ok){
+     const h=new Headers(res.headers);h.delete('content-encoding');h.delete('content-length');h.set('Cache-Control','no-store');
+     let html=await res.text();
+     html=html.replace(/<script\b[^>]*type=["']module["'][^>]*>\s*<\/script>/gi,m=>m);
+     let count=0;
+     html=html.replace(/<script\b[^>]*type=["']module["'][^>]*src=["']([^"']+)["'][^>]*><\/script>/gi,(tag,src)=>{count++;return '<script type="module">await window.__karinCloudReady; await import('+JSON.stringify(src)+');<\/script>'});
+     if(count===0)return json({error:'Could not identify Neoma module for cloud bootstrap'},503);
+     html=html.replace(/<\/head>/i,'<script src="/__cloud/client.js"><\/script><\/head>');
+     return new Response(html,{status:res.status,headers:h});
+   }
+   return res;
+ }
+ return {async fetch(req,env){try{return await handler(req,env)}catch(e){console.error('karin-neoma-cloud',e);return json({error:'Cloud service error'},500)}},async scheduled(event,env,ctx){ctx.waitUntil(reconcileNotes(env).catch(e=>console.error('neoma note cron',e)))}};
+})();
