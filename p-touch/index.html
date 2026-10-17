@@ -14,19 +14,39 @@ Raspberry Pi 3</textarea>
 <label for="qr">QRコードの内容 (任意)</label><input id="qr" placeholder="https://example.com">
 <label for="image">画像を追加 (任意)</label><input id="image" type="file" accept="image/*">
 <label>テンプレート</label><div class="templates"><button data-tpl="server">機器管理</button><button data-tpl="cable">ケーブル</button><button data-tpl="shelf">棚ラベル</button><button data-tpl="blank">白紙</button></div>
-<div class="actions"><button class="primary" id="png">PNG保存</button><button id="svg">SVG保存</button><button id="save">設定保存</button><button id="reset">リセット</button></div>
-<p class="note">現段階はGUI先行版。Bluetooth通信・印刷・テープ幅の自動検出は未実装。プレビューはレイアウト確認用で、実機の印刷不可領域を完全には再現していません。</p>
-</aside><section class="stage"><div class="paper"><div class="ruler" id="measure"></div><div class="tape-wrap"><div class="tape" id="tape"><div class="printable" id="printable"><span class="labeltext" id="preview"></span><img id="art" hidden></div></div></div></div><footer>Web GUI only · 設定はこのブラウザ内に保存 · MIT-style original implementation inspired by P-touch Studio</footer></section></main>
+<div class="actions"><button class="primary" id="png">PNG保存</button><button id="svg">1bit RAW保存</button><button id="save">設定保存</button><button id="reset">リセット</button></div>
+<p class="note">v0.2: プレビューとPNG/RAWは同じ1bitラスタを使用。180dpi相当、印字可能幅は機種仕様を元にした暫定値。印字位置・搬送・カット位置の実機校正は未実施。Bluetooth通信は未実装。QR入力は未描画。</p>
+</aside><section class="stage"><div class="paper"><div class="ruler" id="measure"></div><div class="tape-wrap"><img id="art" hidden><canvas class="tape" id="raster" style="image-rendering:pixelated;max-width:none"></canvas></div></div><footer>1bit shared raster · 設定はこのブラウザ内に保存 · MIT-style original implementation inspired by P-touch Studio</footer></section></main>
 <script>
 const ids=['text','width','length','size','align','font','margin','bold','frame','qr'];const el=id=>document.getElementById(id);let imgData='';
 const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&apos;'}[c]));
 function config(){return Object.fromEntries(ids.map(id=>[id,el(id).type==='checkbox'?el(id).checked:el(id).value]))}
-function render(){const c=config(),w=Number(c.width),len=Math.max(20,Number(c.length)||70),scale=5,mm=Math.max(0,Number(c.margin)||0);const tape=el('tape'),print=el('printable'),label=el('preview');tape.style.width=len*scale+'px';tape.style.height=Math.max(20,w*scale)+'px';print.style.height=Math.max(8,w*scale*.82)+'px';print.style.padding='0 '+mm*scale+'px';print.style.border=c.frame?'1px solid #222':'none';print.style.justifyContent=({left:'flex-start',center:'center',right:'flex-end'})[c.align];label.style.textAlign=c.align;label.style.fontFamily=c.font;label.style.fontWeight=c.bold?'700':'400';label.style.fontSize=Math.min(Number(c.size),Math.max(8,w*scale*.64))+'px';label.textContent=c.text;el('art').hidden=!imgData;el('art').src=imgData;el('art').style.maxHeight=w*scale*.72+'px';el('art').style.maxWidth=w*scale*1.4+'px';el('measure').textContent=w+' mm × '+len+' mm  |  プレビュー倍率 5 px/mm'+(c.qr?'  |  QRデータ入力済み（描画未実装）':'')}
-function svg(){const c=config(),w=Number(c.width),len=Math.max(20,Number(c.length)||70),px=5;const lines=c.text.split('\n');const font=Math.min(Number(c.size),Math.max(8,w*px*.64));const x=c.align==='left'?Math.max(0,Number(c.margin))*px:c.align==='right'?len*px-Math.max(0,Number(c.margin))*px:len*px/2;const anchor={left:'start',center:'middle',right:'end'}[c.align];const height=w*px;const lh=font*1.1;const top=(height-(lines.length-1)*lh)/2;return '<svg xmlns="http://www.w3.org/2000/svg" width="'+len*px+'" height="'+height+'" viewBox="0 0 '+len*px+' '+height+'"><rect width="100%" height="100%" fill="white"/>'+(c.frame?'<rect x="2" y="2" width="'+(len*px-4)+'" height="'+(height-4)+'" fill="none" stroke="black"/>':'')+lines.map((s,i)=>'<text x="'+x+'" y="'+(top+i*lh)+'" text-anchor="'+anchor+'" dominant-baseline="middle" font-family="'+esc(c.font)+'" font-size="'+font+'" font-weight="'+(c.bold?'bold':'normal')+'">'+esc(s)+'</text>').join('')+'</svg>'}
+// Shared raster pipeline: canvas is the single 1-bit source for preview, PNG and RAW.
+// P-touch Studio design reference: printable strip, shared renderer, measured glyph sizing.
+// Head-width table is provisional until P710BT hardware verification.
+const HEAD_DOTS={'3.5':18,'6':32,'9':50,'12':70,'18':112,'24':128};
+let raster=null;
+function render(){
+ const c=config(),mm=Number(c.width),head=HEAD_DOTS[c.width]||70, length=Math.max(20,Math.min(300,Number(c.length)||70));
+ const dots=Math.round(length*180/25.4), margin=Math.round(Math.max(0,Number(c.margin)||0)*180/25.4);
+ const cv=el('raster');cv.width=dots;cv.height=head;
+ const ctx=cv.getContext('2d',{willReadFrequently:true});ctx.fillStyle='white';ctx.fillRect(0,0,dots,head);
+ ctx.fillStyle='black';const lines=c.text.split('\n');const lh=Math.max(8,Math.min(Number(c.size),head/(lines.length*1.15)));
+ ctx.font=(c.bold?'bold ':'')+lh+'px '+c.font;ctx.textAlign=c.align;ctx.textBaseline='middle';
+ const x=c.align==='left'?margin:c.align==='right'?dots-margin:dots/2;
+ lines.forEach((line,i)=>ctx.fillText(line,x,head/2+(i-(lines.length-1)/2)*lh*1.13,Math.max(1,dots-margin*2)));
+ if(imgData){const image=el('art');if(image.complete&&image.naturalWidth){const maxH=Math.max(1,head*.7),maxW=Math.max(1,head*.9);const ratio=Math.min(maxW/image.naturalWidth,maxH/image.naturalHeight);ctx.drawImage(image,Math.max(0,dots-margin-image.naturalWidth*ratio),Math.round((head-image.naturalHeight*ratio)/2),image.naturalWidth*ratio,image.naturalHeight*ratio)}}
+ if(c.frame){ctx.strokeStyle='black';ctx.lineWidth=1;ctx.strokeRect(1,1,dots-2,head-2)}
+ const image=ctx.getImageData(0,0,dots,head);const bits=new Uint8Array(Math.ceil(dots*head/8));
+ for(let i=0;i<dots*head;i++){const j=i*4;const gray=(image.data[j]*299+image.data[j+1]*587+image.data[j+2]*114)/1000;const black=gray<128;if(black)bits[i>>3]|=128>>(i&7);const v=black?0:255;image.data[j]=image.data[j+1]=image.data[j+2]=v;image.data[j+3]=255}
+ ctx.putImageData(image,0,0);raster={dots,head,bits};cv.style.width=Math.max(120,dots*1.35)+'px';cv.style.height=Math.max(24,head*1.35)+'px';
+ el('measure').textContent=mm+' mm × '+length+' mm | '+dots+' × '+head+' dots / 1bit / 180dpi (暫定)'+(c.qr?' | QR未描画':'');
+}
 function download(data,name,type){const a=document.createElement('a');const url=URL.createObjectURL(new Blob([data],{type}));a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)}
-el('svg').onclick=()=>download(svg(),'ptouch-label.svg','image/svg+xml');el('png').onclick=()=>{const src=URL.createObjectURL(new Blob([svg()],{type:'image/svg+xml'}));const im=new Image();im.onload=()=>{const cv=document.createElement('canvas');cv.width=im.width*2;cv.height=im.height*2;cv.getContext('2d').drawImage(im,0,0,cv.width,cv.height);cv.toBlob(b=>{if(b)download(b,'ptouch-label.png','image/png');URL.revokeObjectURL(src)})};im.src=src};
+el('png').onclick=()=>el('raster').toBlob(b=>{if(b)download(b,'ptouch-label-1bit.png','image/png')},'image/png');
+el('svg').onclick=()=>{if(raster)download(raster.bits,'ptouch-label-row-major-1bit.raw','application/octet-stream')};
 el('save').onclick=()=>{localStorage.setItem('ptouch-web-studio',JSON.stringify(config()));alert('設定をブラウザに保存しました')};el('reset').onclick=()=>{localStorage.removeItem('ptouch-web-studio');location.reload()};
 document.querySelectorAll('[data-tpl]').forEach(b=>b.onclick=()=>{const presets={server:['karin-ai\n192.168.1.10',24,70],cable:['LAN-01\nSW ↔ NAS',12,65],shelf:['電子部品 / Parts',18,85],blank:['',12,70]};const [t,w,l]=presets[b.dataset.tpl];el('text').value=t;el('width').value=w;el('length').value=l;render()});
-el('image').onchange=e=>{const f=e.target.files[0];if(!f){imgData='';render();return}const r=new FileReader();r.onload=()=>{imgData=r.result;render()};r.readAsDataURL(f)};
+el('image').onchange=e=>{const f=e.target.files[0];if(!f){imgData='';render();return}const r=new FileReader();r.onload=()=>{imgData=r.result;const im=el('art');im.onload=render;im.src=imgData;render()};r.readAsDataURL(f)};
 ids.forEach(id=>el(id).addEventListener('input',render));try{const saved=JSON.parse(localStorage.getItem('ptouch-web-studio'));if(saved)ids.forEach(id=>{if(saved[id]!==undefined){if(el(id).type==='checkbox')el(id).checked=saved[id];else el(id).value=saved[id]}})}catch{}render();
 </script></html>
