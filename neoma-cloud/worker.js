@@ -220,6 +220,109 @@ export default (function serverMain(){
    return {status:'applied',revision:newRev,count:active.length};
  }
 
+
+ async function applyCoreRanking(env){
+   const planId='karin-rank-core-20261017-v1';
+   const planRow=await env.DB.prepare("SELECT plan_json,status FROM neoma_core_rank_plans WHERE id=? AND status='pending'").bind(planId).first();
+   if(!planRow)return {status:'none'};
+   const plan=JSON.parse(planRow.plan_json);
+   const entry=await env.DB.prepare('SELECT revision,object_key FROM neoma_cloud_state WHERE owner=?').bind(OWNER).first();
+   if(!entry)throw Error('No active cloud vault');
+   const waiting=await env.DB.prepare("SELECT COUNT(*) AS n FROM neoma_note_jobs WHERE status='pending'").first();
+   if(waiting?.n)return {status:'deferred',reason:'queued edits'};
+   const data=await snapshotData(env,entry);
+   const vault=data.stores.vaults.find(v=>v.kind==='browser'&&v.name===plan.vault);
+   if(!vault)throw Error('Karin-Lab browser vault not found');
+   const notes=data.stores.files.filter(f=>f.vaultId===vault.id&&f.path?.endsWith('.md')&&typeof f.text==='string');
+   const paths=new Set(notes.map(f=>f.path));
+   if(notes.length!==69)throw Error('Unexpected core topology node count '+notes.length);
+   const mapping=new Map();
+   for(const item of plan.ranked){
+     if(typeof item.old!=='string'||typeof item.updated!=='string'||!paths.has(item.old+'.md')||paths.has(item.updated+'.md'))throw Error('Invalid rename plan '+item.old);
+     if(mapping.has(item.old))throw Error('Duplicate core '+item.old);
+     mapping.set(item.old,item.updated);
+   }
+   if(mapping.size!==13)throw Error('Expected 13 ranked philosophy hubs');
+   function transformLink(content){
+     return content.replace(/(!?)\[\[([^\]\n]+)\]\]/g, (full,embed,body)=>{
+       const bar=body.indexOf('|'),left=bar>=0?body.slice(0,bar):body,alias=bar>=0?body.slice(bar):'';
+       const hash=left.indexOf('#'),rawName=hash<0?left:left.slice(0,hash),heading=hash<0?'':left.slice(hash);
+       const ext=rawName.toLowerCase().endsWith('.md'),stem=ext?rawName.slice(0,-3):rawName;
+       const newName=mapping.get(stem);
+       return newName?embed+'[['+newName+(ext?'.md':'')+heading+alias+']]':full;
+     });
+   }
+   for(const file of notes){
+     const old=file.path.slice(0,-3),replacement=mapping.get(old);
+     let updated=transformLink(file.text);
+     if(replacement){
+       file.path=replacement+'.md';
+       // YAML frontmatter title is the user's visible title as well as the path label.
+       updated=updated.replace(/^(---\r?\n[\s\S]*?\n)title:\s*[^\r\n]+/m,(_,start)=>start+'title: '+JSON.stringify(replacement));
+       updated=updated.replace(/^# [^\r\n]+/m,'# '+replacement);
+     }
+     if(old==='Karin-Lab 思想マップ'){
+       const ordered=plan.ranked.map(item=>'- [['+item.updated+']]');
+       const block='\n## 思想の重要度順\n\n'+ordered.join('\n')+'\n';
+       if(/\n## 主要思想どうしのつながり\s*\n[^\n]*/.test(updated))updated=updated.replace(/\n## 主要思想どうしのつながり\s*\n[^\n]*/,block);
+       else updated=updated.trimEnd()+'\n'+block;
+     }
+     file.text=updated;
+     file.size=updated.length;
+     file.modifiedAt=Date.now();
+   }
+   // Keep already open editor tabs pointed at the renamed files.
+   for(const [key,value] of Object.entries(data.prefs||{})){
+     if(!key.startsWith('neoma.tabs.')||typeof value!=='string')continue;
+     try{
+       const item=JSON.parse(value);
+       if(Array.isArray(item.tabs)){
+         for(const tab of item.tabs){
+           if(tab?.type!=='note'||typeof tab.path!=='string')continue;
+           const original=tab.path.endsWith('.md')?tab.path.slice(0,-3):tab.path;
+           if(mapping.has(original))tab.path=mapping.get(original)+'.md';
+         }
+         data.prefs[key]=JSON.stringify(item);
+       }
+     }catch{}
+   }
+   const newNames=new Set(notes.map(f=>f.path.slice(0,-3)));
+   if(newNames.size!==69)throw Error('Duplicate title after renaming');
+   const cores=new Set([...mapping.values()]);
+   let planets=0,directedLinks=0,broken=0;
+   const rooted=new Set([...cores,'Karin-Lab 思想マップ']);
+   for(const f of notes){
+     const name=f.path.slice(0,-3);
+     const links=[...f.text.matchAll(/\[\[([^\]\n]+)\]\]/g)].map(m=>m[1].split('|')[0].split('#')[0].replace(/\.md$/i,''));
+     for(const link of links)if(!newNames.has(link))broken++;
+     directedLinks+=links.length;
+     if(!rooted.has(name)){
+       if(links.length!==1||!cores.has(links[0]))throw Error('Satellite topology invalid: '+name);
+       planets++;
+     }
+   }
+   if(broken||planets!==55)throw Error('Graph validation failed: '+broken+' broken, '+planets+' satellites');
+   const raw=new TextEncoder().encode(JSON.stringify(data));
+   if(raw.length>max)throw Error('Vault larger than snapshot limit');
+   const original=await env.BUCKET.get(entry.object_key);
+   if(!original)throw Error('R2 source snapshot not found');
+   const backup='cloud/graph-backups/pre-core-ranking-revision-'+entry.revision+'.json.gz';
+   await env.BUCKET.put(backup,await original.arrayBuffer(),{httpMetadata:{contentType:'application/gzip'}});
+   const hash=await noteHash(new TextDecoder().decode(raw));
+   const compressed=await new Response(new Blob([raw]).stream().pipeThrough(new CompressionStream('gzip'))).arrayBuffer();
+   const newRev=entry.revision+1,now=Date.now(),objectKey='cloud/state/'+newRev+'-'+crypto.randomUUID()+'.json.gz';
+   await env.BUCKET.put(objectKey,compressed,{httpMetadata:{contentType:'application/gzip'},customMetadata:{sha256:hash}});
+   const updated=await env.DB.prepare('UPDATE neoma_cloud_state SET revision=?,object_key=?,sha256=?,size=?,updated_at=? WHERE owner=? AND revision=?').bind(newRev,objectKey,hash,raw.length,now,OWNER,entry.revision).run();
+   if(!updated.meta.changes){
+     await env.BUCKET.delete(objectKey);
+     return {status:'retry',reason:'concurrent save'};
+   }
+   await env.DB.prepare('INSERT INTO neoma_cloud_versions(owner,revision,object_key,sha256,created_at) VALUES(?,?,?,?,?)').bind(OWNER,newRev,objectKey,hash,now).run();
+   await env.DB.prepare("UPDATE neoma_core_rank_plans SET status='applied',detail=?,applied_revision=? WHERE id=? AND status='pending'").bind(JSON.stringify({before:entry.revision,after:newRev,core:13,planets,directedLinks,backup}),newRev,planId).run();
+   await indexSnapshot(env,{revision:newRev,object_key:objectKey},data);
+   return {status:'applied',revision:newRev,planets,directedLinks};
+ }
+
  async function handler(req,env){
    const url=new URL(req.url),path=url.pathname;
    if(path.startsWith('/__cloud/')){
@@ -307,5 +410,5 @@ export default (function serverMain(){
    }
    return res;
  }
- return {async fetch(req,env){try{return await handler(req,env)}catch(e){console.error('karin-neoma-cloud',e);return json({error:'Cloud service error'},500)}},async scheduled(event,env,ctx){ctx.waitUntil((async()=>{await applyGraphPlan(env);await reconcileNotes(env)})().catch(e=>console.error('neoma maintenance',e)))}};
+ return {async fetch(req,env){try{return await handler(req,env)}catch(e){console.error('karin-neoma-cloud',e);return json({error:'Cloud service error'},500)}},async scheduled(event,env,ctx){ctx.waitUntil((async()=>{await applyGraphPlan(env);await applyCoreRanking(env);await reconcileNotes(env)})().catch(e=>console.error('neoma maintenance',e)))}};
 })();
