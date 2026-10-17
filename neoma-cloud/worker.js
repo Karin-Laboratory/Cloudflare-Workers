@@ -104,6 +104,122 @@ export default (function serverMain(){
    return {processed,pending:jobs.length-processed};
  }
 
+
+ async function applyGraphPlan(env){
+   const id='karin-constellation-20261017-v1';
+   const job=await env.DB.prepare("SELECT id,plan_json,expected_revision,status FROM neoma_graph_plans WHERE id=? AND status='pending'").bind(id).first();
+   if(!job)return {status:'none'};
+   const p=JSON.parse(job.plan_json);
+   const row=await env.DB.prepare('SELECT revision,object_key FROM neoma_cloud_state WHERE owner=?').bind(OWNER).first();
+   if(!row||row.revision!==job.expected_revision){
+     await env.DB.prepare("UPDATE neoma_graph_plans SET status='conflict',detail=? WHERE id=? AND status='pending'").bind('Cloud state changed since the graph plan was prepared',id).run();
+     return {status:'conflict'};
+   }
+   const data=await snapshotData(env,row);
+   const vault=data.stores.vaults.find(v=>v.kind==='browser'&&v.name===p.vault);
+   if(!vault)throw Error('Target vault missing');
+   const files=data.stores.files;
+   const existing=files.filter(f=>f.vaultId===vault.id&&typeof f.path==='string'&&f.path.endsWith('.md')&&typeof f.text==='string');
+   const names=new Map(existing.map(f=>[f.path.slice(0,-3),f]));
+   const removals=Object.keys(p.merge);
+   const hubSet=new Set(p.hubs);
+   const roles=new Map();
+   for(const n of p.hubs){if(!names.has(n))throw Error('Missing hub '+n);roles.set(n,'hub');}
+   for(const [hub,members] of Object.entries(p.clusters)){
+     if(!hubSet.has(hub))throw Error('Bad hub '+hub);
+     for(const n of members){if(roles.has(n)||!names.has(n))throw Error('Bad assignment '+n);roles.set(n,hub);}
+   }
+   for(const [old,target] of Object.entries(p.merge)){
+     if(roles.has(old)||!names.has(old)||!names.has(target)||p.merge[target])throw Error('Bad merge '+old+' -> '+target);
+     roles.set(old,'merged');
+   }
+   if(roles.size!==names.size)throw Error('Incomplete topology: '+roles.size+' versus '+names.size);
+   const cleanLinks=t=>t.replace(/!?\[\[([^\]\n]+)\]\]/g,(_,inner)=>{
+     const splits=inner.split('|');return splits.length>1?splits.slice(1).join('|'):splits[0];
+   });
+   function clean(t){
+     return cleanLinks(t.replace(/\n## 関連する考え[\s\S]*?(?=\n## |$)/g,'').replace(/\n## 関連ノート[\s\S]*?(?=\n## |$)/g,'').trimEnd());
+   }
+   function essence(s){
+     return cleanLinks(s.replace(/^---[\s\S]*?\n---\s*\n/,'').replace(/^# [^\n]+\n/,'').split(/\n## /)[0].trim());
+   }
+   const mergedBy=new Map();
+   for(const [removed,target] of Object.entries(p.merge)){
+     const f=names.get(removed);
+     const url=f.text.match(/^source_url:\s*"([^"]+)"/m)?.[1]||f.text.match(/\[(?:元記事|公開記事を読む)\]\((https?:\/\/[^)]+)\)/)?.[1];
+     const item={removed,body:essence(f.text),url};
+     if(!mergedBy.has(target))mergedBy.set(target,[]);
+     mergedBy.get(target).push(item);
+   }
+   const hubLinks=new Map(p.hubs.map(h=>[h,new Set()]));
+   for(const [a,targets] of Object.entries(p.hubEdges)){
+     if(!hubSet.has(a))throw Error('Unrecognised core '+a);
+     for(const b of targets){
+       if(!hubSet.has(b)||a===b)throw Error('Bad core connection');
+       hubLinks.get(a).add(b);hubLinks.get(b).add(a);
+     }
+   }
+   const children=new Map(p.hubs.map(h=>[h,[]]));
+   for(const [name,role] of roles)if(role!=='hub'&&role!=='merged')children.get(role).push(name);
+   function wiki(name){return '[['+name+']]';}
+   for(const [name,f] of names){
+     if(p.merge[name])continue;
+     let main=clean(f.text);
+     if(name==='Karin-Lab 思想マップ'){
+       main='# Karin-Lab 思想マップ\n\n14個の主要思想を結ぶ中核ネットワークと、各主要思想を周回する個別ノートからなる星図。思想同士のつながりは中心ノードに集め、実験、日記、作品、発見のノートは最も関係の深い一つの中心思想につなぐ。内容が類似する15ノートは出典・固有の視点を統合し、元の全文はR2バックアップに保存している。\n\n## 使い方\n\n主要ノードを開くと周囲のノートを一覧できる。個別ノートからは「中心となる思想」で主要ノードに戻れる。現在の星図は主要14、周辺55ノード。\n\n**バックアップ**: クラウド保存の改訂 '+row.revision+' に再編前の84ノートを保持。\n';
+     }
+     const absorbed=mergedBy.get(name)||[];
+     if(absorbed.length){
+       main+='\n\n## 統合した視点（元ノートの記録）\n';
+       for(const a of absorbed)main+='\n- **'+a.removed+'**：'+a.body+(a.url?' [出典]('+a.url+')':'')+'\n';
+     }
+     if(hubSet.has(name)){
+       const peers=[...hubLinks.get(name)].sort((a,b)=>a.localeCompare(b,'ja'));
+       const sats=children.get(name).sort((a,b)=>a.localeCompare(b,'ja'));
+       main+='\n\n## 主要思想どうしのつながり\n\n'+peers.map(wiki).join(' · ');
+       if(sats.length)main+='\n\n## この思想を周回するノート\n\n'+sats.map(x=>'- '+wiki(x)).join('\n');
+     }else{
+       const core=roles.get(name);
+       main+='\n\n## 中心となる思想\n\n'+wiki(core);
+     }
+     f.text=main.trimEnd()+'\n';
+     f.size=f.text.length;f.modifiedAt=Date.now();
+   }
+   const removePaths=new Set(removals.map(x=>x+'.md'));
+   data.stores.files=files.filter(f=>f.vaultId!==vault.id||!removePaths.has(f.path));
+   const active=data.stores.files.filter(f=>f.vaultId===vault.id&&f.path.endsWith('.md')&&typeof f.text==='string');
+   if(active.length!==names.size-removals.length)throw Error('Unexpected final node count');
+   const kept=new Set(active.map(f=>f.path.slice(0,-3)));
+   let edgeCount=0,satelliteEdges=0;
+   for(const f of active){
+     const name=f.path.slice(0,-3);
+     const linked=[...f.text.matchAll(/\[\[([^\]]+)\]\]/g)].map(m=>m[1].split('|')[0]);
+     for(const l of linked)if(!kept.has(l))throw Error('Broken link from '+name+' to '+l);
+     edgeCount+=linked.length;
+     if(!hubSet.has(name)){
+       if(linked.length!==1||!hubSet.has(linked[0]))throw Error('Satellite must have exactly one hub: '+name);
+       satelliteEdges++;
+     }
+   }
+   const raw=new TextEncoder().encode(JSON.stringify(data));
+   if(raw.length>max)throw Error('Result exceeds 30MiB limit');
+   const oldObj=await env.BUCKET.get(row.object_key);
+   if(!oldObj)throw Error('Backup source missing');
+   const backupKey='cloud/graph-backups/pre-constellation-revision-'+row.revision+'.json.gz';
+   await env.BUCKET.put(backupKey,await oldObj.arrayBuffer(),{httpMetadata:{contentType:'application/gzip'}});
+   const hash=await noteHash(new TextDecoder().decode(raw));
+   const gz=await new Response(new Blob([raw]).stream().pipeThrough(new CompressionStream('gzip'))).arrayBuffer();
+   const newRev=row.revision+1,now=Date.now(),key='cloud/state/'+newRev+'-'+crypto.randomUUID()+'.json.gz';
+   await env.BUCKET.put(key,gz,{httpMetadata:{contentType:'application/gzip'},customMetadata:{sha256:hash}});
+   const done=await env.DB.prepare('UPDATE neoma_cloud_state SET revision=?,object_key=?,sha256=?,size=?,updated_at=? WHERE owner=? AND revision=?').bind(newRev,key,hash,raw.length,now,OWNER,row.revision).run();
+   if(!done.meta.changes){await env.BUCKET.delete(key);await env.DB.prepare("UPDATE neoma_graph_plans SET status='conflict',detail='Concurrent cloud save' WHERE id=? AND status='pending'").bind(id).run();return {status:'conflict'};}
+   await env.DB.prepare('INSERT INTO neoma_cloud_versions(owner,revision,object_key,sha256,created_at) VALUES(?,?,?,?,?)').bind(OWNER,newRev,key,hash,now).run();
+   const description=JSON.stringify({from:row.revision,to:newRev,core:p.hubs.length,planets:satelliteEdges,merged:removals.length,total:active.length,directedLinks:edgeCount,backup:backupKey});
+   await env.DB.prepare("UPDATE neoma_graph_plans SET status='applied',detail=?,applied_revision=? WHERE id=?").bind(description,newRev,id).run();
+   await indexSnapshot(env,{revision:newRev,object_key:key},data);
+   return {status:'applied',revision:newRev,count:active.length};
+ }
+
  async function handler(req,env){
    const url=new URL(req.url),path=url.pathname;
    if(path.startsWith('/__cloud/')){
@@ -186,5 +302,5 @@ export default (function serverMain(){
    }
    return res;
  }
- return {async fetch(req,env){try{return await handler(req,env)}catch(e){console.error('karin-neoma-cloud',e);return json({error:'Cloud service error'},500)}},async scheduled(event,env,ctx){ctx.waitUntil(reconcileNotes(env).catch(e=>console.error('neoma note cron',e)))}};
+ return {async fetch(req,env){try{return await handler(req,env)}catch(e){console.error('karin-neoma-cloud',e);return json({error:'Cloud service error'},500)}},async scheduled(event,env,ctx){ctx.waitUntil((async()=>{await applyGraphPlan(env);await reconcileNotes(env)})().catch(e=>console.error('neoma maintenance',e)))}};
 })();
