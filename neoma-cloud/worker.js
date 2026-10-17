@@ -323,6 +323,147 @@ export default (function serverMain(){
    return {status:'applied',revision:newRev,planets,directedLinks};
  }
 
+
+ async function applySatelliteRanking(env){
+   const id='karin-satellite-rank-20261017-v1';
+   const queued=await env.DB.prepare("SELECT plan_json FROM neoma_satellite_rank_plans WHERE id=? AND status='pending'").bind(id).first();
+   if(!queued)return {status:'none'};
+   const plan=JSON.parse(queued.plan_json);
+   if(!Array.isArray(plan.ranking)||plan.ranking.length!==55)throw Error('Satellite rank plan must contain exactly 55 notes');
+   const wait=await env.DB.prepare("SELECT COUNT(*) AS n FROM neoma_note_jobs WHERE status='pending'").first();
+   if(wait?.n)return {status:'deferred',reason:'pending independent note edits'};
+   const current=await env.DB.prepare('SELECT revision,object_key FROM neoma_cloud_state WHERE owner=?').bind(OWNER).first();
+   if(!current)throw Error('Karin-Lab cloud state unavailable');
+   const data=await snapshotData(env,current);
+   const vault=data.stores.vaults.find(v=>v?.kind==='browser'&&v.name===plan.vault);
+   if(!vault)throw Error('Karin-Lab vault unavailable');
+   const notes=data.stores.files.filter(f=>f.vaultId===vault.id&&typeof f.path==='string'&&f.path.endsWith('.md')&&typeof f.text==='string');
+   if(notes.length!==69)throw Error('Unexpected note count: '+notes.length);
+   const names=new Set(notes.map(x=>x.path.slice(0,-3)));
+   const coreNames=new Set([...names].filter(n=>/^思想[０-９]{1,2}：/.test(n)));
+   if(coreNames.size!==13||!names.has('Karin-Lab 思想マップ'))throw Error('Expected 13 main cores and central index');
+   const renames=new Map(),ranks=new Map(),paths=new Set();
+   const fullwidth=n=>String(n).replace(/[0-9]/g,d=>String.fromCharCode(d.charCodeAt(0)+65248));
+   for(let i=0;i<plan.ranking.length;i++){
+     const old=plan.ranking[i];
+     if(typeof old!=='string'||!names.has(old)||coreNames.has(old)||old==='Karin-Lab 思想マップ'||renames.has(old))throw Error('Invalid satellite in ranking: '+old);
+     const slash=old.lastIndexOf('/');
+     const dir=slash>=0?old.slice(0,slash+1):'';
+     const short=slash>=0?old.slice(slash+1):old;
+     const numbered='思想'+fullwidth(101+i)+'：'+short;
+     const replacement=dir+numbered;
+     if(names.has(replacement)||paths.has(replacement))throw Error('Rank path collision '+replacement);
+     const info={newPath:replacement,title:numbered,rank:101+i};
+     renames.set(old,info);
+     ranks.set(replacement,101+i);
+     paths.add(replacement);
+   }
+   if(renames.size!==55)throw Error('Satellite coverage mismatch');
+   function renameLinks(content){
+     return content.replace(/(!?)\[\[([^\]\n]+)\]\]/g,(whole,emb,body)=>{
+       const bar=body.indexOf('|');
+       const left=bar>=0?body.slice(0,bar):body;
+       const alias=bar>=0?body.slice(bar):'';
+       const hash=left.indexOf('#');
+       const path=hash>=0?left.slice(0,hash):left;
+       const heading=hash>=0?left.slice(hash):'';
+       const hasMd=/\.md$/i.test(path);
+       const old=hasMd?path.slice(0,-3):path;
+       const next=renames.get(old);
+       return next?emb+'[['+next.newPath+(hasMd?'.md':'')+heading+alias+']]':whole;
+     });
+   }
+   function titleInFrontmatter(content,newTitle){
+     if(!content.startsWith('---\n')&&!content.startsWith('---\r\n'))
+       return '---\ntitle: '+JSON.stringify(newTitle)+'\n---\n\n'+content;
+     const closing=/^---\r?\n([\s\S]*?)\r?\n---(?=\r?\n|$)/.exec(content);
+     if(!closing)throw Error('Malformed frontmatter');
+     const whole=closing[0],inner=closing[1];
+     const newBlock=/^title:\s*[^\r\n]*/m.test(inner)
+       ?whole.replace(/^title:\s*[^\r\n]*/m,'title: '+JSON.stringify(newTitle))
+       :whole.replace(/^---\r?\n/,'---\ntitle: '+JSON.stringify(newTitle)+'\n');
+     return newBlock+content.slice(whole.length);
+   }
+   let touched=0;
+   for(const file of notes){
+     const old=file.path.slice(0,-3);
+     const next=renames.get(old);
+     let text=renameLinks(file.text);
+     if(next){
+       file.path=next.newPath+'.md';
+       text=titleInFrontmatter(text,next.title);
+       if(/^# [^\r\n]+/m.test(text))text=text.replace(/^# [^\r\n]+/m,'# '+next.title);
+       else text+='\n# '+next.title+'\n';
+       touched++;
+     }
+     if(/^思想[０-９]{1,2}：/.test(old)){
+       const section=/(\n## この思想を周回するノート\s*\n)([\s\S]*?)(?=\n## |$)/;
+       const m=section.exec(text);
+       if(!m)throw Error('Hub missing its satellite list: '+old);
+       const body=m[2],items=body.split('\n').map(x=>x.trim()).filter(Boolean);
+       if(items.some(x=>!/^-\s+\[\[[^\]]+\]\]$/.test(x)))throw Error('Unexpected satellite list structure: '+old);
+       const sorted=items.map(x=>({line:x,target:x.match(/\[\[([^\]]+)\]\]/)[1]})).sort((a,b)=>(ranks.get(a.target)||999)-(ranks.get(b.target)||999));
+       if(sorted.some(x=>!ranks.has(x.target)))throw Error('Unranked satellite reference: '+old);
+       text=text.replace(section,(_match,head)=>head+'\n'+sorted.map(x=>x.line).join('\n')+'\n');
+     }
+     file.text=text;
+     file.size=text.length;
+     if(next)file.modifiedAt=Date.now();
+   }
+   if(touched!==55)throw Error('Only '+touched+' of 55 satellites renamed');
+   // Preserve the user's open editor tabs across the file moves.
+   for(const [k,v] of Object.entries(data.prefs||{})){
+     if(!k.startsWith('neoma.tabs.')||typeof v!=='string')continue;
+     try{
+       const state=JSON.parse(v);
+       if(!Array.isArray(state.tabs))continue;
+       for(const tab of state.tabs){
+         if(tab?.type!=='note'||typeof tab.path!=='string')continue;
+         const old=tab.path.replace(/\.md$/i,'');
+         const target=renames.get(old);
+         if(target)tab.path=target.newPath+'.md';
+       }
+       data.prefs[k]=JSON.stringify(state);
+     }catch{}
+   }
+   const after=new Set(notes.map(x=>x.path.slice(0,-3)));
+   if(after.size!==69)throw Error('Renaming produced path collision');
+   let edgeCount=0,satellites=0,hubLinks=0;
+   for(const f of notes){
+     const name=f.path.slice(0,-3);
+     const links=[...f.text.matchAll(/\[\[([^\]\n]+)\]\]/g)].map(x=>x[1].split('|')[0].split('#')[0].replace(/\.md$/i,''));
+     for(const target of links)if(!after.has(target))throw Error('Broken link '+name+' -> '+target);
+     edgeCount+=links.length;
+     if(!coreNames.has(name)&&name!=='Karin-Lab 思想マップ'){
+       if(links.length!==1||!coreNames.has(links[0]))throw Error('Satellite degree is not 1: '+name);
+       satellites++;
+     }else if(coreNames.has(name)){
+       hubLinks+=links.filter(x=>coreNames.has(x)).length;
+     }
+   }
+   if(satellites!==55||hubLinks!==48)throw Error('Unexpected constellation topology '+satellites+'/'+hubLinks);
+   const raw=new TextEncoder().encode(JSON.stringify(data));
+   if(raw.length>max)throw Error('Vault snapshot too large');
+   const backupSource=await env.BUCKET.get(current.object_key);
+   if(!backupSource)throw Error('Current source object missing');
+   const backup='cloud/graph-backups/pre-satellite-ranking-revision-'+current.revision+'.json.gz';
+   await env.BUCKET.put(backup,await backupSource.arrayBuffer(),{httpMetadata:{contentType:'application/gzip'}});
+   const sha=await noteHash(new TextDecoder().decode(raw));
+   const gz=await new Response(new Blob([raw]).stream().pipeThrough(new CompressionStream('gzip'))).arrayBuffer();
+   const revision=current.revision+1,now=Date.now(),key='cloud/state/'+revision+'-'+crypto.randomUUID()+'.json.gz';
+   await env.BUCKET.put(key,gz,{httpMetadata:{contentType:'application/gzip'},customMetadata:{sha256:sha}});
+   const saved=await env.DB.prepare('UPDATE neoma_cloud_state SET revision=?,object_key=?,sha256=?,size=?,updated_at=? WHERE owner=? AND revision=?').bind(revision,key,sha,raw.length,now,OWNER,current.revision).run();
+   if(!saved.meta.changes){
+     await env.BUCKET.delete(key);
+     return {status:'retry',reason:'Concurrent cloud revision'};
+   }
+   await env.DB.prepare('INSERT INTO neoma_cloud_versions(owner,revision,object_key,sha256,created_at) VALUES(?,?,?,?,?)').bind(OWNER,revision,key,sha,now).run();
+   const details={before:current.revision,after:revision,renamed:touched,planets:satellites,directedLinks:edgeCount,backup};
+   await env.DB.prepare("UPDATE neoma_satellite_rank_plans SET status='applied',detail=?,applied_revision=? WHERE id=? AND status='pending'").bind(JSON.stringify(details),revision,id).run();
+   await indexSnapshot(env,{revision,object_key:key},data);
+   return {status:'applied',...details};
+ }
+
  async function handler(req,env){
    const url=new URL(req.url),path=url.pathname;
    if(path.startsWith('/__cloud/')){
@@ -410,5 +551,5 @@ export default (function serverMain(){
    }
    return res;
  }
- return {async fetch(req,env){try{return await handler(req,env)}catch(e){console.error('karin-neoma-cloud',e);return json({error:'Cloud service error'},500)}},async scheduled(event,env,ctx){ctx.waitUntil((async()=>{await applyGraphPlan(env);await applyCoreRanking(env);await reconcileNotes(env)})().catch(e=>console.error('neoma maintenance',e)))}};
+ return {async fetch(req,env){try{return await handler(req,env)}catch(e){console.error('karin-neoma-cloud',e);return json({error:'Cloud service error'},500)}},async scheduled(event,env,ctx){ctx.waitUntil((async()=>{await applyGraphPlan(env);await applyCoreRanking(env);await applySatelliteRanking(env);await reconcileNotes(env)})().catch(e=>console.error('neoma maintenance',e)))}};
 })();
