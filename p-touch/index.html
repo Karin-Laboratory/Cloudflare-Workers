@@ -15,8 +15,8 @@ Raspberry Pi 3</textarea>
 <label for="image">画像を追加 (任意)</label><input id="image" type="file" accept="image/*">
 <label>テンプレート</label><div class="templates"><button data-tpl="server">機器管理</button><button data-tpl="cable">ケーブル</button><button data-tpl="shelf">棚ラベル</button><button data-tpl="blank">白紙</button></div>
 <div class="actions"><button class="primary" id="png">PNG保存</button><button id="svg">1bit RAW保存</button><button id="save">設定保存</button><button id="reset">リセット</button></div>
-<p class="note">v0.2: プレビューとPNG/RAWは同じ1bitラスタを使用。180dpi相当、印字可能幅は機種仕様を元にした暫定値。印字位置・搬送・カット位置の実機校正は未実施。Bluetooth通信は未実装。QR入力は未描画。</p>
-</aside><section class="stage"><div class="paper"><div class="ruler" id="measure"></div><div class="tape-wrap"><img id="art" hidden><canvas class="tape" id="raster" style="image-rendering:pixelated;max-width:none"></canvas></div></div><footer>1bit shared raster · 設定はこのブラウザ内に保存 · MIT-style original implementation inspired by P-touch Studio</footer></section></main>
+<p class="note">現在の表示はローカル暫定レンダラーによる参考プレビューです。P-touch Studioとの完全一致は未達成。最終版ではRasPi 3の同一レンダラーでプレビューと印刷を生成します。Bluetooth印刷・QR描画は未実装。</p>
+</aside><section class="stage"><div class="paper"><div class="ruler" id="measure"></div><div class="tape-wrap"><img id="art" hidden><canvas class="tape" id="raster" style="image-rendering:pixelated;max-width:none"></canvas></div></div><footer>Local 1bit preview (not P-touch Studio exact) · 設定はこのブラウザ内に保存 · MIT-style original implementation inspired by P-touch Studio</footer></section></main>
 <script>
 const ids=['text','width','length','size','align','font','margin','bold','frame','qr'];const el=id=>document.getElementById(id);let imgData='';
 const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&apos;'}[c]));
