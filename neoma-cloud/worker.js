@@ -225,6 +225,11 @@ export default (function serverMain(){
    if(path.startsWith('/__cloud/')){
      if(!(await checkJwt(req)))return json({error:'Cloudflare Access authentication required'},401);
      if(path==='/__cloud/client.js'&&req.method==='GET')return new Response(clientJs,{headers:{'Content-Type':'application/javascript; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'}});
+     if(path==='/__cloud/edit-ctrl-click.js'&&req.method==='GET'){
+       const addon=await env.BUCKET.get('cloud/assets/edit-ctrl-click.js');
+       if(!addon)return json({error:'Client enhancement not installed'},404);
+       return new Response(addon.body,{headers:{'Content-Type':'application/javascript; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'}});
+     }
      if(path==='/__cloud/health'&&req.method==='GET')return json({ok:true,app:'karin-neoma-cloud',database:!!env.DB,bucket:!!env.BUCKET,upstream:!!env.UPSTREAM});
      if(path==='/__cloud/notes'&&req.method==='GET'){
        await reconcileNotes(env);
@@ -297,7 +302,7 @@ export default (function serverMain(){
      let count=0;
      html=html.replace(/<script\b[^>]*type=["']module["'][^>]*src=["']([^"']+)["'][^>]*><\/script>/gi,(tag,src)=>{count++;return '<script type="module">await window.__karinCloudReady; await import('+JSON.stringify(src)+');<\/script>'});
      if(count===0)return json({error:'Could not identify Neoma module for cloud bootstrap'},503);
-     html=html.replace(/<\/head>/i,'<script src="/__cloud/client.js"><\/script><\/head>');
+     html=html.replace(/<\/head>/i,'<script src="/__cloud/client.js"><\/script><script src="/__cloud/edit-ctrl-click.js" defer><\/script><\/head>');
      return new Response(html,{status:res.status,headers:h});
    }
    return res;
