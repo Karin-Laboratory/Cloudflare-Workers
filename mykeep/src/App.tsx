@@ -1854,7 +1854,7 @@ export default function App() {
           <section className={`pin-row${dropLevel === level ? " drag-over-row" : ""}${externalLinkOver && externalTargetLevel === level ? " external-drop-target" : ""}`} data-pin-level={level}
             onDragOver={(event) => { if (draggingNoteRef.current && !working) { event.preventDefault(); setDropNoteId(null); setDropLevel(level); } }}
             onDrop={(event) => { if (draggingNoteRef.current) { event.preventDefault(); if (layoutMode !== "tabs") setPinCollapsed(level, false); void dropCard(level, null); } }} key={level} aria-label={`${pinHeadings[level - 1]}のピン留めメモ`}>
-            <div className="pin-row-heading">
+            {layoutMode !== "tabs" && <div className="pin-row-heading">
               {layoutMode !== "tabs" && <button type="button" className="pin-collapse" aria-expanded={!collapsedPins.includes(level)} aria-controls={`pin-content-${level}`}
                 aria-label={`${pinHeadings[level - 1]}を${collapsedPins.includes(level) ? "展開" : "折りたたむ"}`}
                 onClick={() => setPinCollapsed(level, !collapsedPins.includes(level))}>
@@ -1872,7 +1872,7 @@ export default function App() {
                     setEditingPinHeading(level); setPinHeadingDraft(pinHeadings[level - 1]); setPinHeadingError("");
                   }}>📌 {pinHeadings[level - 1]}</button>
               </h2>}
-            </div>
+            </div>}
             {pinHeadingError && (editingPinHeading === level || !pinHeadingsLoaded) && <p role="alert">{pinHeadingError}</p>}
             <div id={`pin-content-${level}`} className={`pin-blind${layoutMode !== "tabs" && collapsedPins.includes(level) ? " collapsed" : ""}`}
               inert={layoutMode !== "tabs" && collapsedPins.includes(level)} aria-hidden={layoutMode !== "tabs" && collapsedPins.includes(level)}>
