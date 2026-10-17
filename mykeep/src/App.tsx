@@ -42,6 +42,7 @@ const DARK_SETTING = "mykeep.darkMode";
 const CARD_TITLE_SETTING = "mykeep.cardShowTitle";
 const CARD_BODY_SETTING = "mykeep.cardShowBody";
 const REFRESH_SETTING = "mykeep.autoRefreshSeconds";
+const LAYOUT_SETTING = "mykeep.layoutMode";
 const REFRESH_SECONDS = [10, 30, 60] as const;
 type RefreshSeconds = typeof REFRESH_SECONDS[number];
 
@@ -514,6 +515,12 @@ export default function App() {
     };
   }, []);
   const [view, setView] = useState<View>("active");
+  const [layoutMode, setLayoutMode] = useState<"flat" | "tabs">(() => { try { return localStorage.getItem(LAYOUT_SETTING) === "tabs" ? "tabs" : "flat"; } catch { return "flat"; } });
+  const [activePinTab, setActivePinTab] = useState(1);
+  function changeLayout(mode: "flat" | "tabs") {
+    setLayoutMode(mode);
+    try { localStorage.setItem(LAYOUT_SETTING, mode); } catch { /* private mode */ }
+  }
   const [search, setSearch] = useState("");
   const [labelFilter, setLabelFilter] = useState("");
   const [availableLabels, setAvailableLabels] = useState<string[]>([]);
@@ -1806,6 +1813,18 @@ export default function App() {
         </aside>
         <div className={`main-content${externalLinkOver ? " external-link-over" : ""}`} ref={mainContentRef}
           >
+      <div className="mykeep-view-switch" role="group" aria-label="表示形式">
+        <button type="button" className={layoutMode === "flat" ? "selected" : ""} aria-pressed={layoutMode === "flat"} onClick={() => changeLayout("flat")}>フラットビュー</button>
+        <button type="button" className={layoutMode === "tabs" ? "selected" : ""} aria-pressed={layoutMode === "tabs"} onClick={() => changeLayout("tabs")}>タブビュー</button>
+      </div>
+      {layoutMode === "tabs" && view === "active" && !labelFilter && <nav className="mykeep-tabstrip" aria-label="ピン留めタブ">
+        {[1, 2, 3, 0].map((level) => <button key={level} type="button" role="tab"
+          aria-selected={activePinTab === level} className={activePinTab === level ? "mykeep-tab active" : "mykeep-tab"}
+          onClick={() => setActivePinTab(level)}>
+          <span>{level ? `📌 ${pinHeadings[level - 1] || `${level}段目`}` : "ピンなし"}</span>
+          <span className="mykeep-tab-count">{level ? pinRows.find((row) => row.level === level)?.notes.length ?? 0 : otherNotes.length}</span>
+        </button>)}
+      </nav>}
       {(pullDistance > 0 || pullRefreshing) && <div className="pull-indicator" role="status" style={{ height: pullRefreshing ? 38 : Math.min(pullDistance, 80) }}>↻ {pullRefreshing ? "更新中…" : pullDistance >= 70 ? "離して更新" : "引っ張って更新"}</div>}
       {view === "trash" && <div className="trash-header">
         <p>ゴミ箱内のメモは7日後に削除されます。</p>
@@ -1831,7 +1850,7 @@ export default function App() {
       {view === "trash" ? (
         <section className="grid" aria-label="ゴミ箱一覧">{notes.map(renderNoteCard)}</section>
       ) : <>
-        {view !== "unpinned" && pinRows.map(({ level, notes: rowNotes }) => (view === "active" || rowNotes.length > 0) &&
+        {view !== "unpinned" && pinRows.map(({ level, notes: rowNotes }) => (view === "active" || rowNotes.length > 0) && (layoutMode !== "tabs" || view !== "active" || !!labelFilter || activePinTab === level) &&
           <section className={`pin-row${dropLevel === level ? " drag-over-row" : ""}${externalLinkOver && externalTargetLevel === level ? " external-drop-target" : ""}`} data-pin-level={level}
             onDragOver={(event) => { if (draggingNoteRef.current && !working) { event.preventDefault(); setDropNoteId(null); setDropLevel(level); } }}
             onDrop={(event) => { if (draggingNoteRef.current) { event.preventDefault(); setPinCollapsed(level, false); void dropCard(level, null); } }} key={level} aria-label={`${pinHeadings[level - 1]}のピン留めメモ`}>
@@ -1863,7 +1882,7 @@ export default function App() {
               </div>
             </div>
           </section>)}
-        {(otherNotes.length > 0 || view === "active") && <section className={`grid unpinned-drop-zone${dropLevel === 0 ? " drag-over-row" : ""}${externalLinkOver && externalTargetLevel === 0 ? " external-drop-target" : ""}`}
+        {(otherNotes.length > 0 || view === "active") && (layoutMode !== "tabs" || view !== "active" || !!labelFilter || activePinTab === 0) && <section className={`grid unpinned-drop-zone${dropLevel === 0 ? " drag-over-row" : ""}${externalLinkOver && externalTargetLevel === 0 ? " external-drop-target" : ""}`}
           onDragOver={(event) => { if (draggingNoteRef.current && !working) { event.preventDefault(); setDropNoteId(null); setDropLevel(0); } }}
           onDrop={(event) => { if (draggingNoteRef.current) { event.preventDefault(); void dropCard(0, null); } }} aria-label={view === "active" ? "メモ一覧" : view === "unpinned" ? "ピンなしメモ一覧" : view === "images" ? "画像ありメモ一覧" : view === "imageless" ? "画像なしメモ一覧" : "アーカイブ一覧"}>{otherNotes.length ? otherNotes.map(renderNoteCard) : <p className="pin-row-empty">ピンなしのメモをここに移動できます。</p>}</section>}
       </>}
