@@ -399,12 +399,13 @@ export default (function serverMain(){
      if(/^思想[０-９]{1,2}：/.test(old)){
        const section=/(\n## この思想を周回するノート\s*\n)([\s\S]*?)(?=\n## |$)/;
        const m=section.exec(text);
-       if(!m)throw Error('Hub missing its satellite list: '+old);
-       const body=m[2],items=body.split('\n').map(x=>x.trim()).filter(Boolean);
-       if(items.some(x=>!/^-\s+\[\[[^\]]+\]\]$/.test(x)))throw Error('Unexpected satellite list structure: '+old);
-       const sorted=items.map(x=>({line:x,target:x.match(/\[\[([^\]]+)\]\]/)[1]})).sort((a,b)=>(ranks.get(a.target)||999)-(ranks.get(b.target)||999));
-       if(sorted.some(x=>!ranks.has(x.target)))throw Error('Unranked satellite reference: '+old);
-       text=text.replace(section,(_match,head)=>head+'\n'+sorted.map(x=>x.line).join('\n')+'\n');
+       if(m){
+         const body=m[2],items=body.split('\n').map(x=>x.trim()).filter(Boolean);
+         if(items.some(x=>!/^-\s+\[\[[^\]]+\]\]$/.test(x)))throw Error('Unexpected satellite list structure: '+old);
+         const sorted=items.map(x=>({line:x,target:x.match(/\[\[([^\]]+)\]\]/)[1]})).sort((a,b)=>(ranks.get(a.target)||999)-(ranks.get(b.target)||999));
+         if(sorted.some(x=>!ranks.has(x.target)))throw Error('Unranked satellite reference: '+old);
+         text=text.replace(section,(_match,head)=>head+'\n'+sorted.map(x=>x.line).join('\n')+'\n');
+       }
      }
      file.text=text;
      file.size=text.length;
