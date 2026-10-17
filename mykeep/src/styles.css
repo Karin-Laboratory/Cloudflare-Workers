@@ -472,18 +472,21 @@ h2 { margin: 0; font-size: 1.15rem; }
 :root[data-theme="dark"] .link-title-editor-actions button:not(.primary) { background: #373a40; color: #f0eee9; border-color: #686c72; }
 @media(max-width:600px){ .link-title-editor { right: 12px; bottom: max(12px,env(safe-area-inset-bottom)); } }
 
-/* Shared Chrome-style tab treatment used by homepage / notepad. */
-.mykeep-view-switch { display:flex; justify-content:flex-end; gap:3px; padding:10px 2px 8px; }
-.mykeep-view-switch button { border:1px solid #c8c9cb; background:#f0f1f3; color:#3c4350; border-radius:7px; padding:6px 12px; font-size:12px; }
-.mykeep-view-switch button.selected { background:#3c506c; border-color:#3c506c; color:#fff; font-weight:650; }
-.mykeep-view-switch button:focus-visible,.mykeep-tab:focus-visible { outline:2px solid #e3b745; outline-offset:2px; }
-.mykeep-tabstrip { display:flex; align-items:flex-end; gap:0; overflow-x:auto; padding:4px 2px 0; border-bottom:1px solid #b4bcc8; scrollbar-width:thin; }
-.mykeep-tab { position:relative; isolation:isolate; min-width:110px; max-width:220px; flex:0 0 auto; padding:9px 18px 8px; margin-right:-8px; border:0; border-radius:0; background:none; color:#e0e6f1; display:flex; gap:9px; justify-content:space-between; align-items:center; font-size:12px; white-space:nowrap; }
-.mykeep-tab::before,.mykeep-tab::after { content:""; position:absolute; inset:0; z-index:-2; clip-path:polygon(13px 0,calc(100% - 13px) 0,100% 100%,0 100%); background:#657994; pointer-events:none; }
-.mykeep-tab::after { inset:1px 1px 0; z-index:-1; background:linear-gradient(145deg,#3c4e68,#29394f); }
-.mykeep-tab.active { color:#ffe1a0; z-index:2; font-weight:650; }
-.mykeep-tab.active::before { background:#b9c9e0; }
-.mykeep-tab.active::after { background:linear-gradient(145deg,#526c90,#354c6c); }
-.mykeep-tab:hover:not(.active)::after { background:linear-gradient(145deg,#4b6181,#314763); }
-.mykeep-tab-count { color:inherit; opacity:.7; font-size:11px; }
-@media(max-width:650px) { .mykeep-tab { min-width:94px; padding:9px 12px; } .mykeep-view-switch { justify-content:center; } }
+/* Chrome-shaped tabs, matching homepage and notepad. */
+.mykeep-view-switch{display:flex;justify-content:flex-end;gap:3px;padding:10px 2px 8px}
+.mykeep-view-switch button{border:1px solid #c8c9cb;background:#f0f1f3;color:#3c4350;border-radius:7px;padding:6px 12px;font-size:12px}
+.mykeep-view-switch button.selected{background:#3c506c;border-color:#3c506c;color:#fff;font-weight:650}
+.mykeep-view-switch button:focus-visible,.mykeep-tab:focus-visible{outline:2px solid #e3b745;outline-offset:2px}
+.mykeep-tabstrip{display:flex;align-items:flex-end;gap:0;min-height:42px;overflow-x:auto;padding:9px 2px 0;border-bottom:1px solid #60718a;scrollbar-width:thin}
+.mykeep-tab{position:relative;isolation:isolate;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;min-height:33px;min-width:110px;max-width:250px;padding:0 14px;margin-right:-7px;border:0;border-radius:0;background:none;color:#c2d1e5;font-size:12px;white-space:nowrap;gap:8px;filter:drop-shadow(0 -2px 3px #0006);transition:transform .13s ease}
+.mykeep-tab::before,.mykeep-tab::after{content:"";position:absolute;pointer-events:none;clip-path:polygon(15px 0,calc(100% - 15px) 0,100% 100%,0 100%)}
+.mykeep-tab::before{inset:0;background:#60718a;z-index:-2}
+.mykeep-tab::after{inset:1px 1px 0;background:linear-gradient(145deg,#35425a,#233047);z-index:-1}
+.mykeep-tab.active{color:#fff;z-index:2;filter:drop-shadow(0 -2px 5px #a2bbf13d)}
+.mykeep-tab.active::before{background:#c4d3eb}
+.mykeep-tab.active::after{background:linear-gradient(145deg,#496188,#30455f)}
+.mykeep-tab:hover::before{background:#a8bddd}
+.mykeep-tab:hover::after{background:linear-gradient(145deg,#445a77,#2b3d54)}
+.mykeep-tab>span:first-child{display:block;overflow:hidden;text-overflow:ellipsis;padding:7px 5px;line-height:18px}
+.mykeep-tab-count{opacity:.75;font-size:11px;padding-right:4px}
+@media(max-width:650px){.mykeep-tab{min-width:95px;max-width:195px;padding:0 12px}.mykeep-view-switch{justify-content:center}}
