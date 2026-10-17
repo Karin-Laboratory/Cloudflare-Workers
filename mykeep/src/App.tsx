@@ -714,6 +714,7 @@ export default function App() {
     setLoadingMore(false);
     pageLoadFailedRef.current = false;
     const pages = changedFilter ? 1 : pagesLoadedRef.current;
+    const loadAllTabs = layoutMode === "tabs" && view === "active" && !labelFilter;
     refreshingRef.current = true;
     if (changedFilter) {
       window.scrollTo({ top: 0, behavior: "instant" });
@@ -731,7 +732,7 @@ export default function App() {
         const collected: Note[] = [];
         let more = false;
         let fetchedPages = 0;
-        for (let page = 0; page < pages; page++) {
+        for (let page = 0; page < pages || (loadAllTabs && more); page++) {
           const data = await api<NoteList>(listPath(view, search, labelFilter, page * 50), { signal: controller.signal });
           collected.push(...data.notes);
           fetchedPages++;
@@ -767,7 +768,7 @@ export default function App() {
     }
     void refresh();
     return () => controller.abort();
-  }, [view, search, labelFilter, reload]);
+  }, [view, search, labelFilter, layoutMode, reload]);
 
   useEffect(() => {
     api<{ labels: string[] }>("/api/labels")
