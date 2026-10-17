@@ -57,6 +57,13 @@ export default (function serverMain(){
    }
    // Preserve the existing Neoma application, legacy synchronization API, and static assets.
    const res=await env.UPSTREAM.fetch(req);
+   if(req.method==='GET'&&path==='/Karin-Lab-Qiita-Hatena-31.zip'&&res.ok){
+     const headers=new Headers(res.headers);
+     headers.set('Content-Disposition','attachment; filename="Karin-Lab-Qiita-Hatena-31.zip"');
+     headers.set('Content-Type','application/zip');
+     headers.set('Cache-Control','private, no-store');
+     return new Response(res.body,{status:res.status,headers});
+   }
    if(req.method==='GET'&&(path==='/'||path==='/index.html')&&res.ok){
      const h=new Headers(res.headers);h.delete('content-encoding');h.delete('content-length');h.set('Cache-Control','no-store');
      let html=await res.text();
