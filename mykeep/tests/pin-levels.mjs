@@ -115,3 +115,15 @@ assert.equal(dropped.url,'https://www.example.org/page');
 assert.equal(dropped.title,'Example Page');
 assert.equal(parseDroppedBrowserLink(drag({'text/plain':'javascript:alert(1)'})),null);
 console.log('PASS: external browser drag payloads retain meaningful page titles and URLs');
+
+const uiSource = readFileSync('src/App.tsx', 'utf8');
+const gridEffect = uiSource.match(/useLayoutEffect\(\(\) => \{([\s\S]*?)\}, \[([^\]]+)\]\);/);
+assert(gridEffect, 'Card grid layout effect must exist');
+assert.match(gridEffect[1], /layoutNoteGrids\(root\);/, 'Layout must run before the first paint');
+for (const dependency of ['notes', 'layoutMode', 'activePinTab', 'labelFilter']) {
+  assert(gridEffect[2].split(',').map(value => value.trim()).includes(dependency),
+    `Card grid layout must react to ${dependency} updates`);
+}
+assert.match(gridEffect[1], /root\.querySelectorAll<HTMLElement>\("\.card"\)/,
+  'ResizeObserver must follow the currently mounted cards');
+console.log('PASS: tab switches and layout-mode changes recalculate mounted card grid positions');
