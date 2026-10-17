@@ -658,12 +658,11 @@ export default function App() {
     };
     const anchor = scrollAnchorRef.current;
     scrollAnchorRef.current = null;
-    if (anchor) {
-      layoutNoteGrids(root);
-      restoreListAnchor(anchor);
-    } else {
-      scheduleLayout();
-    }
+    // New tab panels are mounted with 1px grid tracks; lay them out before paint.
+    layoutNoteGrids(root);
+    if (anchor) restoreListAnchor(anchor);
+    // Recheck once after paint for font/image changes.
+    scheduleLayout();
     const observer = new ResizeObserver((entries) => {
       const nextWidth = entries.find((entry) => entry.target === root)?.contentRect.width ?? width;
       // Grid height changes after layout; only root width or card sizes need another pass.
@@ -673,7 +672,7 @@ export default function App() {
     observer.observe(root);
     root.querySelectorAll<HTMLElement>(".card").forEach((card) => observer.observe(card));
     return () => { observer.disconnect(); cancelAnimationFrame(frame); };
-  }, [notes, view, selecting, cardShowTitle, cardShowBody]);
+  }, [notes, view, selecting, cardShowTitle, cardShowBody, layoutMode, activePinTab, labelFilter]);
   useEffect(() => {
     setSelectedNoteIds(new Set());
     setSelecting(false);
