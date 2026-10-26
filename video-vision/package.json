@@ -4,9 +4,10 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "check": "node --check src/index.js",
+    "check": "node scripts/build.mjs && node --check src/index.js && node tests/presentation.test.mjs",
     "dev": "wrangler dev",
-    "deploy": "wrangler deploy --keep-vars"
+    "deploy": "wrangler deploy --keep-vars",
+    "build": "node scripts/build.mjs"
   },
   "devDependencies": {
     "wrangler": "^4.0.0"
