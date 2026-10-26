@@ -1,0 +1,5 @@
+name = "karin-video-vision"
+main = "src/index.js"
+compatibility_date = "2026-10-26"
+workers_dev = true
+
