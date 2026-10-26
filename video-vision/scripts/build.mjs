@@ -1,0 +1,10 @@
+import { readFileSync, writeFileSync } from 'node:fs';
+const html = readFileSync(new URL('../site.html', import.meta.url), 'utf8');
+const file = new URL('../src/index.js', import.meta.url);
+const source = readFileSync(file, 'utf8');
+const marker = ';\nexport default';
+const offset = source.indexOf(marker);
+if (!source.startsWith('const PAGE = ') || offset < 0) throw new Error('Worker shell not found');
+const next = 'const PAGE = ' + JSON.stringify(html) + source.slice(offset);
+if (next !== source) writeFileSync(file, next);
+console.log('Generated Worker from site.html (' + html.length + ' HTML chars)');
