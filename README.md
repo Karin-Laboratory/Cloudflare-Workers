@@ -2,11 +2,12 @@
 
 Cloudflare Workers で動かす Karin-Lab 個人開発アプリのソースコードを、ひとつの GitHub リポジトリで管理するためのモノレポです。
 
-## Cloudflare Worker 一覧（2026-10-12）
-以下の **17本すべて** を `main` の独立ディレクトリで管理します。Cloudflare Workers Builds は対応する `<folder>/**` の変更時だけその Worker をビルド・デプロイします。
+## Cloudflare Worker 一覧（2026-10-26）
+以下の **18本すべて** を `main` の独立ディレクトリで管理します。Cloudflare Workers Builds は対応する `<folder>/**` の変更時だけその Worker をビルド・デプロイします。
 
 | アプリ | Worker | 公開先 |
 |---|---|---|
+| [video-vision/](./video-vision/) | `karin-video-vision` | `vision.karin-lab.com` |
 | [mykeep/](./mykeep/) | `mykeep` | `mykeep.karin-lab.com` |
 | [notepad/](./notepad/) | `karin-notepad` | `notepad.karin-lab.com` |
 | [excel/](./excel/) | `karin-excel` | `excel.karin-lab.com` |
