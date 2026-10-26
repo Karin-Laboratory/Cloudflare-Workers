@@ -6,7 +6,7 @@ GitHub（`Cloudflare-Workers`）管理のカリンラボ公式ホームページ
 - **WHO WE ARE** 個人とAIで活動する実験室であることを明示。
 - **MISSION** 「でも本当にそう？」を起点に、実験・再利用・記録を重視。
 - **FIELDS** OpenWrt/OS、AI個人開発、映像、再利用。
-- **PROJECTS** 公開情報に基づくフィーチャーと15件の検索可能なプロジェクト・ライブラリ。
+- **PROJECTS** 公開情報に基づくフィーチャーと20件の検索可能なプロジェクト・ライブラリ。
 - **STORIES** 実機成果の読みもの、noteへの導線。
 - **CONNECT** GitHub、note、video vision、X。
 
