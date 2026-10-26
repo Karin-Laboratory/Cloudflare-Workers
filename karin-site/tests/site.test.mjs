@@ -1,0 +1,14 @@
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+const html=readFileSync(new URL('../site.html',import.meta.url),'utf8');
+const worker=readFileSync(new URL('../src/index.js',import.meta.url),'utf8');
+const marker=';\nconst svg = ';
+assert.equal(JSON.parse(worker.slice('const PAGE = '.length,worker.indexOf(marker))),html);
+for(const id of ['about','mission','fields','projects','approach','journal','connect'])assert.ok(html.includes('id="'+id+'"'),id);
+assert.ok(html.includes('id="projectSearch"')&&html.includes('data-category="all"'));
+assert.ok(html.includes('prefers-reduced-motion')&&html.includes('aria-label'));
+assert.ok(html.includes('https://github.com/Karin-Laboratory/openwrt-terminal-6'));
+assert.ok(html.includes('https://note.com/deft_llama956'));
+assert.ok(!/<script[^>]+src=/.test(html),'No external JS');
+assert.ok(!/192\.168\.|100\.100\.|sbat6a_recovery|masataka88@gmail/.test(html),'No private addresses or secrets');
+console.log('PASS: sections, discovery, access, reduced motion and source consistency');
