@@ -1,0 +1,10 @@
+import {readFileSync,writeFileSync} from 'node:fs';
+const html=readFileSync(new URL('../site.html',import.meta.url),'utf8');
+const dest=new URL('../src/index.js',import.meta.url);
+const prior=readFileSync(dest,'utf8');
+const marker=';\nconst svg = ';
+const pos=prior.indexOf(marker);
+if(!prior.startsWith('const PAGE = ')||pos===-1)throw Error('Worker shell mismatch');
+const output='const PAGE = '+JSON.stringify(html)+prior.slice(pos);
+if(prior!==output)writeFileSync(dest,output);
+console.log('Site built: '+html.length+' chars');
