@@ -17,7 +17,10 @@
 
 ## 構成
 
-- `src/index.js`: Cloudflare Worker。**CSS / SVGライクな図解 / JavaScriptを全て含むスタンドアロンHTMLを返す**。依存するCDNや画像素材なし。
+- `site.html`: **編集用の正式HTML原本**。CSS・図解・JavaScriptを内包し、CDNや画像素材に依存しない。
+- `scripts/build.mjs`: `site.html`からWorkerのHTML部分を更新するビルドスクリプト。
+- `src/index.js`: 生成されたCloudflare Worker（HTMLを返す）。
+- `tests/presentation.test.mjs`: 8幕構成・ナビゲーション・アクセシビリティの確認。
 - `wrangler.toml`: Worker設定。
 - `package.json`: 開発コマンド。
 
