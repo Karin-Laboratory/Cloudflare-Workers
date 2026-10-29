@@ -55,7 +55,7 @@ test("status skips all blank and whitespace-only lines before filename source",(
  sample("完了\n \n\nOpenWrtのLAN設定を修正する","archive","完了(OpenWrtのLA).txt");
  sample("終了\r\n  \r\n \r\n三行以降の文章","archive","終了(三行以降の文章).txt");
 });
-test("root files scroll independently and two folders remain immediately visible",()=>{
+test("folder rows remain visible after scrolling past ordinary files",()=>{
  class MockElement{
   constructor(tag){this.tag=tag;this.children=[];this.textContent="";this.value="";this.open=false;this.className="";}
   replaceChildren(){this.children=[];}
@@ -80,21 +80,22 @@ test("root files scroll independently and two folders remain immediately visible
   $:id=>elements[id],cloudFiles,docs:[],connected:true,fileRule:clientRule,openCloud:()=>{}
  });
  picker.refreshCloudList();
- const [roots,archive,trash]=elements["cloudopen-list"].children;
- assert.equal(elements["cloudopen-list"].children.length,3);
- assert.equal(roots.className,"cloud-root-list");
- assert.equal(roots.children.length,22);
+ const nodes=elements["cloudopen-list"].children;
+ assert.equal(nodes.length,24);
+ assert.equal(nodes[0].children[0].textContent,"通常0.txt");
+ const archive=nodes[22],trash=nodes[23];
+ assert.equal(archive.tag,"details");
+ assert.equal(trash.tag,"details");
  assert.match(archive.children[0].textContent,/アーカイブ \(3\)/);
  assert.match(trash.children[0].textContent,/ごみ箱 \(11\)/);
  assert.equal(archive.open,false);
  assert.equal(trash.open,false);
- assert.equal(picker.cloudFolderOpen.archive,false);
- assert.equal(picker.cloudFolderOpen.trash,false);
  const cssEncoded=workerSource.match(/const CSS=("(?:\\.|[^"\\])*");/);
  assert.ok(cssEncoded);
  const css=JSON.parse(cssEncoded[1]);
- assert.match(css,/\.cloud-root-list\{[^}]*max-height:[^}]*overflow-y:auto/);
- assert.match(css,/#cloudopen-list\{[^}]*overflow:visible/);
+ assert.match(css,/#cloudopen-list\{[^}]*overflow-y:auto/);
+ assert.match(css,/#cloudopen-list\s*>\s*\.cloud-folder\{[^}]*flex:0 0 auto/);
+ assert.match(css,/#cloudopen-list\s*>\s*\.cloud-folder\{[^}]*min-height:46px/);
  elements["cloudopen-search"].value="完了";
  picker.refreshCloudList();
  assert.equal(elements["cloudopen-list"].children.length,1);
