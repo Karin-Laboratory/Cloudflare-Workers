@@ -1,6 +1,6 @@
 // Backup ref: backup/art-preference-preview-20261107 (immutable recovery point).
 // Temporary museum-verified preview gateway; final dataset is a frozen R2+GitHub manifest.
-const SOURCE="49d72105fb9c3cea50f9373ab1faa922fd4fed7a";
+const SOURCE="bf6ecbca9bb82161f5e900a5b501d1ff561ec579";
 const BASE="https://raw.githubusercontent.com/Karin-Laboratory/Cloudflare-Workers/"+SOURCE+"/art-preference/";
 const FILES={"/":"index.html","/index.html":"index.html","/app.js":"app.js"};
 const ARTISTS=["Monet","Van Gogh","Renoir","Cezanne","Seurat","Pissarro","Morisot","Cassatt","Manet","Gauguin"];
@@ -19,7 +19,7 @@ async function collect(){
   const image="https://www.artic.edu/iiif/2/"+p.image_id+"/full/843,/0/default.jpg";
   try{const r=await fetch(image,{method:"GET"});if(!r.ok||!(r.headers.get("content-type")||"").startsWith("image/"))return null;await r.body?.cancel()}catch{return null}
   const txt=(p.thumbnail?.alt_text||"").toLowerCase();
-  return{id:"aic-"+p.id,title:p.title,artist:p.artist_title||"Artist unknown",image,features:TOKENS.map((re,i)=>re.test(txt)?0.8:0.3+((p.id+i*17)%5)*0.06),is_public_domain:true,source_url:"https://www.artic.edu/artworks/"+p.id,image_checked:true};
+  return{id:"aic-"+p.id,title:p.title,artist:p.artist_title||"Artist unknown",image,fallback_image:p.thumbnail?.lqip||null,features:TOKENS.map((re,i)=>re.test(txt)?0.8:0.3+((p.id+i*17)%5)*0.06),is_public_domain:true,source_url:"https://www.artic.edu/artworks/"+p.id,image_checked:true};
  }));
  const artworks=checked.filter(Boolean).slice(0,32);
  if(artworks.length<19)throw new Error("Not enough public-domain paintings with verified images: "+artworks.length);
