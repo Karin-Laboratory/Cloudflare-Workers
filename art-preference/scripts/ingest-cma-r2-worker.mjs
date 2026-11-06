@@ -25,7 +25,10 @@ async function loadPage(s){
  url.searchParams.set("has_image","1");
  url.searchParams.set("type","Painting");
  url.searchParams.set("limit","100");
- url.searchParams.set("skip",String((s.page-1)*100));
+ // Pages 1-4 were imported before this policy change. Traverse all later pages
+ // in a fixed permutation instead of accession order, to reduce period skew.
+ const sourcePage=s.page<5?s.page:5+(((s.page-5)*17+5)%36);
+ url.searchParams.set("skip",String((sourcePage-1)*100));
  const data=await (await request(url.toString())).json();
  s.page++;
  if(!Array.isArray(data.data)||!data.data.length){s.status="STOPPED_SOURCE_EXHAUSTED";return}
@@ -56,7 +59,7 @@ async function run(env){
  try {
   while(done<BATCH&&s.artworks.length<TARGET){
    if(!s.queue.length){
-    if(s.page>100){s.status="STOPPED_PAGE_LIMIT";break}
+    if(s.page>40){s.status="STOPPED_PAGE_LIMIT";break}
     await loadPage(s);sourceCalls++;await delay(1100);
     if(s.status!=="IN_PROGRESS")break;
     if(!s.queue.length)continue;
@@ -74,7 +77,7 @@ async function run(env){
   if(s.artworks.length===0&&s.failed.length>=40){s.status="STOPPED_ALL_IMAGES_FAILED";s.lastError="No JPEG successfully imported in 40 attempts";}
   if(s.artworks.length>=TARGET){
    const fixed=s.artworks.slice(0,TARGET);
-   const catalog={version:"cma-cc0-v1",status:"FROZEN_METADATA_AND_IMAGES",selection_notice:"CMA CC0 paintings in API retrieval order; NOT verified global popularity top 1024",source:"Cleveland Museum of Art",count:fixed.length,artworks:fixed};
+   const catalog={version:"cma-cc0-v1",status:"FROZEN_METADATA_AND_IMAGES",selection_notice:"CMA CC0 paintings selected from accession pages using fixed page permutation; NOT verified global popularity top 1024",source:"Cleveland Museum of Art",count:fixed.length,artworks:fixed};
    await writeJSON(env,PREFIX+"/catalog.json",catalog);
    s.status="IMAGES_COMPLETE_FEATURES_PENDING";
    s.queue=[];
