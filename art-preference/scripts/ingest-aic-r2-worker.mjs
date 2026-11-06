@@ -86,5 +86,5 @@ async function run(env){
 export default {
  async fetch(){return new Response("Not found",{status:404})},
  async scheduled(_event,env,ctx){ctx.waitUntil(run(env))},
- async queue(batch,env){for(const msg of batch.messages){try{const s=await run(env);if(s?.status==='IN_PROGRESS'&&Date.now()<EXPIRES){await env.ART_QUEUE.send({job:'aic-1024',next:s.artworks.length},{delaySeconds:2})}msg.ack()}catch(error){msg.retry({delaySeconds:120})}}}
+ async queue(batch,env){for(const msg of batch.messages){try{if(msg.body?.job==='probe'){const urls=['https://openaccess-api.clevelandart.org/api/artworks/?cc0&has_image=1&type=Painting&limit=1','https://collectionapi.metmuseum.org/public/collection/v1/objects/436524','https://api.artic.edu/api/v1/artworks/27992'];const checks=[];for(const url of urls){try{const r=await fetch(url,{signal:AbortSignal.timeout(12000)});checks.push({url,status:r.status,contentType:r.headers.get('content-type'),sample:(await r.text()).slice(0,900)})}catch(e){checks.push({url,error:String(e)})}}await writeJSON(env,PREFIX+'/probe.json',{checks,at:new Date().toISOString()});msg.ack();continue}const s=await run(env);if(s?.status==='IN_PROGRESS'&&Date.now()<EXPIRES&&!s.lastError){await env.ART_QUEUE.send({job:'aic-1024',next:s.artworks.length},{delaySeconds:2})}msg.ack()}catch(error){msg.retry({delaySeconds:120})}}}
 };
