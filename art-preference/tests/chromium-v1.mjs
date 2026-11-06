@@ -11,7 +11,7 @@ const context=await browser.newContext({viewport:{width:1400,height:900}});
 const page=await context.newPage(),events=[];
 try{
  await page.route("**/api/**",async route=>{
-  const path=new URL(route.request().url).pathname;
+  const path=new URL(route.request().url()).pathname;
   if(path==="/api/catalog")return route.fulfill({status:200,contentType:"application/json",body:JSON.stringify({count:1024,status:"FROZEN_METADATA_AND_IMAGES",artworks:works})});
   if(path==="/api/features")return route.fulfill({status:200,contentType:"application/json",body:JSON.stringify({count:1024,status:"FEATURES_FROZEN_UNVALIDATED_RECOMMENDATION",items:vectors})});
   if(path==="/api/events"){events.push(route.request().postDataJSON());return route.fulfill({status:204,body:""})}
