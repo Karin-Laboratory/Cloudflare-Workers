@@ -17,9 +17,21 @@ async function collect(){
     try {const r=await fetch(u.toString());if(!r.ok)return [];const j=await r.json();return (j.data||[]).filter(painting).slice(0,8)}
     catch{return []}
   }));
+  // Broader official query if artist-specific searches are throttled or return too few paintings.
+  if(queries.reduce((n,g)=>n+g.length,0)<25){
+    for(let page=1;page<=3;page++){
+      const u=new URL("https://api.artic.edu/api/v1/artworks/search");
+      u.searchParams.set("query[term][is_public_domain]","true");
+      u.searchParams.set("limit","100");
+      u.searchParams.set("page",String(page));
+      u.searchParams.set("fields","id,title,artist_title,image_id,is_public_domain,artwork_type_title,classification_title,thumbnail");
+      try{const response=await fetch(u.toString());if(response.ok){const j=await response.json();queries.push((j.data||[]).filter(painting).slice(0,40));}}
+      catch{}
+    }
+  }
   const all=[];const used=new Set();
   // Round-robin prevents one artist from filling the whole list.
-  for(let i=0;i<8;i++)for(const g of queries){
+  for(let i=0;i<40;i++)for(const g of queries){
     const p=g[i];if(!p||used.has(p.id))continue;used.add(p.id);all.push(p);
   }
   const artworks=all.slice(0,42).map(p=>{
