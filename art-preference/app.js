@@ -4,7 +4,7 @@ const VERSION="preview-v0.1";
 const $$=id=>document.getElementById(id);
 const {artworks:CATALOG}=await (await fetch("./data/preview-artworks.json",{cache:"no-store"})).json();
 const D=CATALOG[0].features.length;
-let history=[],seen=new Set(),currentPair=[],displayedAt=0,round=0;
+let history=[],seen=new Set(),bad=new Set(),currentPair=[],displayedAt=0,round=0,epoch=0;
 const dot=(a,b)=>a.reduce((s,x,i)=>s+x*b[i],0);
 const subtract=(a,b)=>a.map((x,i)=>x-b[i]);
 const dist2=(a,b)=>a.reduce((s,x,i)=>s+(x-b[i])**2,0);
@@ -24,7 +24,7 @@ export function preference(records,weighted=true){
   return records.reduce((v,r,i)=>v.map((n,j)=>n+weights[i]*direction(r)[j]),Array(D).fill(0));
 }
 function nextPair(){
-  const available=CATALOG.filter(x=>!seen.has(x.id));
+  const available=CATALOG.filter(x=>!seen.has(x.id)&&!bad.has(x.id));
   if(available.length<2)return [];
   const u=preference(history,false);
   let best=null,bestScore=-Infinity;
@@ -38,27 +38,27 @@ function nextPair(){
   }
   return best;
 }
-function choiceImage(p,index){
+function choiceImage(p,index,token){
  const button=document.createElement("button");button.type="button";button.className="art";
  button.setAttribute("aria-label",`作品 ${index===0?"A":"B"} を選ぶ`);
  const img=document.createElement("img");img.alt=`絵画 ${index===0?"A":"B"}`;img.src=p.image;img.decoding="async";img.loading="eager";
  button.append(img);
- img.addEventListener("error",()=>{img.remove();const m=document.createElement("span");m.textContent="作品画像を読み込めません。作品データの監査待ちです。";m.style.color="#a13535";button.append(m);button.disabled=true});
+ img.addEventListener("error",()=>{if(p.fallback_image&&!img.dataset.fallback){img.dataset.fallback="true";img.src=p.fallback_image;return}if(token!==epoch)return;bad.add(p.id);displayedAt=0;showRound()});
  button.addEventListener("click",()=>choose(index));return {button,img};
 }
 async function showRound(){
  round=history.length;
  if(round===8)return finish();
- currentPair=nextPair();if(currentPair.length!==2)return finish();
+ currentPair=nextPair();if(currentPair.length!==2){document.getElementById("question").textContent="利用可能な作品が不足しています。ページを再読み込みしてください。";return;}const token=++epoch;
  $$("fill").style.width=`${round/8*100}%`;
  $$("question").textContent=`${round+1} / 8   どちらが好き？`;
  const root=$$("paintings");root.replaceChildren();
- const nodes=currentPair.map(choiceImage);
+ const nodes=currentPair.map((p,i)=>choiceImage(p,i,token));
  nodes.forEach(({button})=>{button.disabled=true;root.append(button)});
  await Promise.all(nodes.map(({img})=>img.decode().catch(()=>{})));
  // Before the timer starts, make the pair visible in one frame. No history leaves the browser.
  requestAnimationFrame(()=>requestAnimationFrame(()=>{
-   nodes.forEach(({button})=>{if(button.querySelector("img"))button.disabled=false});
+   if(token!==epoch)return;nodes.forEach(({button})=>{if(button.querySelector("img"))button.disabled=false});
    displayedAt=performance.now();
  }));
 }
@@ -89,5 +89,5 @@ function finish(){
  const extreme=(left===0||left===8);
  $$("audit").textContent=JSON.stringify({version:VERSION,questions:history,normalizedPreference:u,side:{left,right:8-left,biasCorrection:"none",note:extreme?"極端な左右選択を観測。ただし8問では原因を特定できない。":"個人の位置効果を確定する証拠なし"},recommended:candidates.slice(0,3).map(x=>x.id)},null,2);
 }
-$$("restart").addEventListener("click",()=>{history=[];seen=new Set();currentPair=[];displayedAt=0;$$("results").classList.add("hidden");$$("quiz").classList.remove("hidden");showRound()});
+$$("restart").addEventListener("click",()=>{history=[];seen=new Set();bad=new Set();currentPair=[];displayedAt=0;$$("results").classList.add("hidden");$$("quiz").classList.remove("hidden");showRound()});
 showRound();
