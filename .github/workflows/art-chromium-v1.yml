@@ -1,0 +1,38 @@
+name: Art Chromium eight-click smoke
+on:
+  push:
+    branches: [feature/art-1024-r2-20261107]
+    paths:
+      - '.github/workflows/art-chromium-v1.yml'
+      - 'art-preference/tests/chromium-v1.mjs'
+      - 'art-preference/app-v1.js'
+      - 'art-preference/index-v1.html'
+      - 'art-preference/recommender-v1.mjs'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install browser runner
+        working-directory: art-preference
+        run: |
+          npm install --no-save playwright@1.56.0
+          npx playwright install --with-deps chromium
+      - name: Start static test server
+        run: |
+          python3 -m http.server 8765 --directory art-preference > /tmp/art-http.log 2>&1 &
+          echo $! > /tmp/art-http.pid
+          sleep 2
+      - name: Real Chromium selects 8, receives 3, rates without submit
+        working-directory: art-preference
+        run: node tests/chromium-v1.mjs
+      - name: Inspect server log on failure
+        if: failure()
+        run: cat /tmp/art-http.log || true
