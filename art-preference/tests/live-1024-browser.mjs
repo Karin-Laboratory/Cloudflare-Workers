@@ -24,7 +24,7 @@ try{
  assert.equal(await page.locator(".result").count(),3);
  assert.equal(await page.locator(".rating button").count(),15);
  const recommended=await page.locator(".result img").evaluateAll(imgs=>imgs.map(i=>({src:i.src,complete:i.complete,width:i.naturalWidth})));
- for(const p of recommended){assert.ok(p.src.includes("/img/cma-"));assert.ok(!visited.has(p.src));await page.locator(".result img[src='"+p.src+"']").evaluate(img=>img.decode());}
+ for(let i=0;i<recommended.length;i++){const p=recommended[i];assert.ok(p.src.includes("/img/cma-"));assert.ok(!visited.has(p.src));await page.locator(".result img").nth(i).evaluate(img=>img.decode());}
  await page.locator(".rating").first().getByRole("button",{name:"すごい好き！"}).click();
  await page.locator(".rating").first().getByRole("button",{name:"確かに好き"}).click();
  await page.waitForTimeout(200);
