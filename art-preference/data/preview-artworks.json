@@ -1,0 +1,342 @@
+{
+  "status": "UNVERIFIED_PREVIEW_ONLY",
+  "note": "画像URL・権利・採点値は未監査。正式1,024作品データではない。作品画像が表示できない場合があります。",
+  "artworks": [
+    {
+      "id": "starry",
+      "title": "星月夜",
+      "artist": "Vincent van Gogh",
+      "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Van_Gogh_-_Starry_Night_-_Google_Art_Project.jpg",
+      "features": [
+        0.2,
+        0.9,
+        0.8,
+        0.8,
+        0.7,
+        0.8
+      ]
+    },
+    {
+      "id": "mona",
+      "title": "モナ・リザ",
+      "artist": "Leonardo da Vinci",
+      "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Mona_Lisa%2C_by_Leonardo_da_Vinci%2C_from_C2RMF_retouched.jpg",
+      "features": [
+        1,
+        0.2,
+        0.3,
+        0.8,
+        0.3,
+        0.3
+      ]
+    },
+    {
+      "id": "wave",
+      "title": "神奈川沖浪裏",
+      "artist": "葛飾北斎",
+      "image": "https://commons.wikimedia.org/wiki/Special:FilePath/The_Great_Wave_off_Kanagawa.jpg",
+      "features": [
+        0.8,
+        0.9,
+        0.8,
+        0.9,
+        0.8,
+        0.6
+      ]
+    },
+    {
+      "id": "kiss",
+      "title": "接吻",
+      "artist": "Gustav Klimt",
+      "image": "https://commons.wikimedia.org/wiki/Special:FilePath/The_Kiss_-_Gustav_Klimt_-_Google_Cultural_Institute.jpg",
+      "features": [
+        0.7,
+        0.9,
+        0.8,
+        0.6,
+        0.9,
+        0.9
+      ]
+    },
+    {
+      "id": "scream",
+      "title": "叫び",
+      "artist": "Edvard Munch",
+      "image": "https://commons.wikimedia.org/wiki/Special:FilePath/The_Scream.jpg",
+      "features": [
+        0.6,
+        0.9,
+        0.9,
+        0.7,
+        0.8,
+        0.8
+      ]
+    },
+    {
+      "id": "pearl",
+      "title": "真珠の耳飾りの少女",
+      "artist": "Johannes Vermeer",
+      "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Girl_with_a_Pearl_Earring.jpg",
+      "features": [
+        1,
+        0.3,
+        0.3,
+        0.5,
+        0.2,
+        0.2
+      ]
+    },
+    {
+      "id": "birth",
+      "title": "ヴィーナスの誕生",
+      "artist": "Sandro Botticelli",
+      "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Sandro_Botticelli_-_La_nascita_di_Venere_-_Google_Art_Project_-_edited.jpg",
+      "features": [
+        0.9,
+        0.5,
+        0.5,
+        0.8,
+        0.5,
+        0.3
+      ]
+    },
+    {
+      "id": "impression",
+      "title": "印象・日の出",
+      "artist": "Claude Monet",
+      "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Claude_Monet%2C_Impression%2C_soleil_levant.jpg",
+      "features": [
+        0.8,
+        0.6,
+        0.5,
+        0.4,
+        0.6,
+        0.6
+      ]
+    },
+    {
+      "id": "nightwatch",
+      "title": "夜警",
+      "artist": "Rembrandt",
+      "image": "https://commons.wikimedia.org/wiki/Special:FilePath/The_Nightwatch_by_Rembrandt.jpg",
+      "features": [
+        1,
+        0.5,
+        0.7,
+        0.9,
+        0.7,
+        0.2
+      ]
+    },
+    {
+      "id": "guernica",
+      "title": "ゲルニカ",
+      "artist": "Pablo Picasso",
+      "image": "https://commons.wikimedia.org/wiki/Special:FilePath/PicassoGuernica.jpg",
+      "features": [
+        0.3,
+        0.3,
+        1,
+        0.9,
+        0.9,
+        0.8
+      ]
+    },
+    {
+      "id": "mondrian",
+      "title": "赤・青・黄のコンポジション",
+      "artist": "Piet Mondrian",
+      "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Piet_Mondrian%2C_1930_-_Mondrian_Composition_II_in_Red%2C_Blue%2C_and_Yellow.jpg",
+      "features": [
+        0,
+        0.9,
+        0.9,
+        0.2,
+        1,
+        0.1
+      ]
+    },
+    {
+      "id": "persistence",
+      "title": "記憶の固執",
+      "artist": "Salvador Dalí",
+      "image": "https://commons.wikimedia.org/wiki/Special:FilePath/The_Persistence_of_Memory.jpg",
+      "features": [
+        0.8,
+        0.6,
+        0.4,
+        0.6,
+        0.8,
+        0.3
+      ]
+    },
+    {
+      "id": "waterlilies",
+      "title": "睡蓮",
+      "artist": "Claude Monet",
+      "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Claude_Monet_-_Water_Lilies_-_1906%2C_Ryerson.jpg",
+      "features": [
+        0.7,
+        0.6,
+        0.3,
+        0.3,
+        0.7,
+        0.7
+      ]
+    },
+    {
+      "id": "american",
+      "title": "アメリカン・ゴシック",
+      "artist": "Grant Wood",
+      "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Grant_Wood_-_American_Gothic_-_Google_Art_Project.jpg",
+      "features": [
+        1,
+        0.3,
+        0.4,
+        0.6,
+        0.5,
+        0.2
+      ]
+    },
+    {
+      "id": "liberty",
+      "title": "民衆を導く自由の女神",
+      "artist": "Eugène Delacroix",
+      "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Eug%C3%A8ne_Delacroix_-_La_libert%C3%A9_guidant_le_peuple.jpg",
+      "features": [
+        1,
+        0.7,
+        0.7,
+        0.9,
+        0.7,
+        0.5
+      ]
+    },
+    {
+      "id": "whistlers",
+      "title": "灰色と黒のアレンジメント",
+      "artist": "James McNeill Whistler",
+      "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Whistlers_Mother_high_res.jpg",
+      "features": [
+        1,
+        0.1,
+        0.1,
+        0.3,
+        0.2,
+        0.2
+      ]
+    },
+    {
+      "id": "garden",
+      "title": "快楽の園",
+      "artist": "Hieronymus Bosch",
+      "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Hieronymus_Bosch_-_The_Garden_of_Earthly_Delights_-_The_Central_Panel.jpg",
+      "features": [
+        0.9,
+        0.9,
+        1,
+        1,
+        0.9,
+        0.8
+      ]
+    },
+    {
+      "id": "nighthawks",
+      "title": "ナイトホークス",
+      "artist": "Edward Hopper",
+      "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Nighthawks_by_Edward_Hopper_1942.jpg",
+      "features": [
+        1,
+        0.5,
+        0.3,
+        0.5,
+        0.8,
+        0.2
+      ]
+    },
+    {
+      "id": "venus",
+      "title": "ウルビーノのヴィーナス",
+      "artist": "Titian",
+      "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Titian_-_Venus_of_Urbino_-_Google_Art_Project.jpg",
+      "features": [
+        1,
+        0.7,
+        0.3,
+        0.8,
+        0.3,
+        0.4
+      ]
+    },
+    {
+      "id": "lasmeninas",
+      "title": "ラス・メニーナス",
+      "artist": "Diego Velázquez",
+      "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Las_Meninas_01.jpg",
+      "features": [
+        1,
+        0.4,
+        0.6,
+        1,
+        0.3,
+        0.4
+      ]
+    },
+    {
+      "id": "son",
+      "title": "人の子",
+      "artist": "René Magritte",
+      "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Magritte_TheSonOfMan.jpg",
+      "features": [
+        0.9,
+        0.5,
+        0.3,
+        0.3,
+        0.9,
+        0.1
+      ]
+    },
+    {
+      "id": "memory",
+      "title": "夜のカフェテラス",
+      "artist": "Vincent van Gogh",
+      "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Van_Gogh_-_Cafe_Terrace_at_Night_-_Google_Art_Project.jpg",
+      "features": [
+        0.9,
+        0.9,
+        0.7,
+        0.7,
+        0.7,
+        0.7
+      ]
+    },
+    {
+      "id": "spring",
+      "title": "春",
+      "artist": "Sandro Botticelli",
+      "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Botticelli-primavera.jpg",
+      "features": [
+        1,
+        0.8,
+        0.6,
+        1,
+        0.6,
+        0.4
+      ]
+    },
+    {
+      "id": "school",
+      "title": "アテナイの学堂",
+      "artist": "Raphael",
+      "image": "https://commons.wikimedia.org/wiki/Special:FilePath/Sanzio_01.jpg",
+      "features": [
+        1,
+        0.6,
+        0.6,
+        1,
+        0.5,
+        0.3
+      ]
+    }
+  ]
+}
