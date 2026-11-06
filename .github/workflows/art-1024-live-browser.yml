@@ -1,0 +1,48 @@
+name: Art 1024 live domain browser verification
+on:
+  push:
+    branches: [feature/art-1024-r2-20261107]
+    paths:
+      - '.github/workflows/art-1024-live-browser.yml'
+      - 'art-preference/tests/live-1024-browser.mjs'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  live:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install Playwright
+        working-directory: art-preference
+        run: |
+          npm install --no-save playwright@1.56.0
+          npx playwright install --with-deps chromium
+      - name: Wait for frozen features, hash verification and production switch
+        run: |
+          set -euo pipefail
+          for i in $(seq 1 100); do
+            if curl -fsSL --max-time 12 'https://art.karin-lab.com/health' -o /tmp/art-ready.json; then
+              if python3 -c 'import json;d=json.load(open("/tmp/art-ready.json"));assert d["ready"] and d["version"]=="art-v1-frozen"'; then
+                echo "Production release activated"; exit 0
+              fi
+            fi
+            sleep 20
+          done
+          echo "Release gate did not activate"
+          exit 1
+      - name: Actual site eight-click and rating test
+        working-directory: art-preference
+        run: node tests/live-1024-browser.mjs
+      - name: Save real browser screenshot
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: art-1024-live-screenshot
+          path: /tmp/art-1024-live.png
+          if-no-files-found: ignore
+          retention-days: 7
