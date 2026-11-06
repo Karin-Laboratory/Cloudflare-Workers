@@ -81,8 +81,10 @@ async function run(env){
  }catch(e){s.lastError=String(e).slice(0,300)}
  s.updatedAt=new Date().toISOString();
  await writeJSON(env,STATE,s);
+ return s;
 }
 export default {
  async fetch(){return new Response("Not found",{status:404})},
- async scheduled(_event,env,ctx){ctx.waitUntil(run(env))}
+ async scheduled(_event,env,ctx){ctx.waitUntil(run(env))},
+ async queue(batch,env){for(const msg of batch.messages){try{const s=await run(env);if(s?.status==='IN_PROGRESS'&&Date.now()<EXPIRES){await env.ART_QUEUE.send({job:'aic-1024',next:s.artworks.length},{delaySeconds:2})}msg.ack()}catch(error){msg.retry({delaySeconds:120})}}}
 };
