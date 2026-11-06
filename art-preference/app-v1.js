@@ -1,4 +1,4 @@
-import{MODEL_VERSION,validateCatalog,nextPair,auditResult}from"./recommender-v1.mjs";
+import{MODEL_VERSION,validateCatalog,nextPair,auditResult,timingWeights}from"./recommender-v1.mjs";
 const $=id=>document.getElementById(id),names=[["4","すごい好き！"],["3","確かに好き"],["2","まあまあ"],["1","好きじゃない"],["0","なんでこれ？"]];
 let artworks=[],history=[],ratings=new Map(),seenAt=new Map(),shownAt=0,visiblePaused=0,hiddenAt=null,version=0,active=false,result=null,started=performance.now(),finalized=false;
 const sessionId=crypto.randomUUID(),pending=new Map(),sending=new Set(),storageKey="art-pending-v1";
@@ -14,7 +14,7 @@ async function begin(){
  try{flush();const [catalog,features]=await Promise.all([get("/api/catalog"),get("/api/features")]);
  if(catalog.count!==1024||catalog.status!=="FROZEN_METADATA_AND_IMAGES"||features.count!==1024||!String(features.status).startsWith("FEATURES_FROZEN"))throw Error("固定データが未完成");
  const byFeature=new Map(features.items.map(a=>[a.id,a.features]));
- artworks=catalog.artworks.map(a=>({...a,features:byFeature.get(a.id)}));
+ artworks=catalog.artworks.map(a=>({...a,features:byFeature.get(a.id),visual:features.items.find(f=>f.id===a.id)?.visual}));
  validateCatalog(artworks);if(artworks.some(a=>a.license!=="CC0"||!a.image_sha256))throw Error("画像の権利・ハッシュが不足");
  $("status").classList.add("hidden");$("quiz").classList.remove("hidden");started=performance.now();round();
  }catch(e){fail("絵画データの準備ができていません: "+String(e.message||e))}
@@ -45,7 +45,11 @@ function finish(){
  result=auditResult(artworks,history,{timeCorrection:true,count:3});if(result.recommendations.length!==3){fail("おすすめ作品が不足");return}
  const root=$("recommendations");root.replaceChildren();
  result.recommendations.forEach((p,i)=>{const box=document.createElement("article");box.className="result";const img=new Image();img.alt=p.title+" / "+p.artist;img.src=url(p);img.addEventListener("load",()=>seenAt.set(p.id,performance.now()),{once:true});const meta=document.createElement("div");meta.innerHTML="<small>おすすめ "+(i+1)+"</small><h3>"+esc(p.title)+"</h3><p>"+esc(p.artist)+"</p><small>相対類似度 "+Number(p.score).toFixed(3)+" (検証前)</small><p><a href='"+esc(p.source_url)+"' target='_blank' rel='noopener noreferrer'>美術館の作品情報</a></p>";box.append(img,meta);rate(box,p,i+1);root.append(box)});
- $("explanation").textContent="選択した絵と選択しなかった絵の画像特徴の差分から、未提示作品を順位付けしました。決断時間は８回答内の相対的な差から暫定的に調整しています。左右の個人的な選択癖は８回答から確定できないため補正していません。推薦精度は未検証です。";
+ const byId=new Map(artworks.map(a=>[a.id,a]));const weights=timingWeights(history);
+ const axes=["明るさ","彩度","赤と青の強さの差","明暗差","輪郭の密度","暗い部分の割合"];
+ const explain=axes.map((name,j)=>{let d=0;history.forEach((r,i)=>{const winner=byId.get(r.pair[r.choice]),loser=byId.get(r.pair[1-r.choice]);d+=(winner?.visual?.[j]-loser?.visual?.[j])*weights[i]||0});return{name,d}}).filter(x=>Number.isFinite(x.d)).sort((a,b)=>Math.abs(b.d)-Math.abs(a.d));
+ const facts=explain.filter(x=>Math.abs(x.d)>0.2).slice(0,2).map(x=>"「"+x.name+"」は選択作品側が"+(x.d>0?"高い":"低い")+"傾向");
+ $("explanation").textContent="８回の比較から画像特徴の違いを計算し、未提示作品を推薦しました。"+(facts.length?"実際の選択では"+facts.join("、")+"が見られました。":"特徴の差は明確ではありませんでした。")+"決断時間補正は実験段階で、左右の個別バイアスは８問から断定できないため補正していません。推薦精度は未検証です。";
  $("audit").textContent=JSON.stringify({model:MODEL_VERSION,answers:history,recommended:result.recommendations.map(p=>({id:p.id,title:p.title,score:p.score,imageSha256:p.image_sha256})),timeCorrection:"experimental two-step",sideCorrection:"none"},null,2);
  emit("result-shown",{answers:history,recommendations:result.recommendations.map(x=>x.id)})
 }
