@@ -64,14 +64,18 @@ async function run(env){
     if(s.status!=="IN_PROGRESS")break;
     if(!s.queue.length)continue;
    }
-   const p=s.queue.shift();
-   try {
-    const item=await acquire(env,s,p);
-    s.artworks.push(item);
-   }catch(e){
-    if(s.failed.length<120)s.failed.push({id:p.id,reason:String(e).slice(0,180)});
+   // Bounded four-way image fetch, still only one museum metadata request per page.
+   // Promise.all preserves item order even when image responses arrive out of order.
+   const batch=s.queue.splice(0,Math.min(4,BATCH-done,TARGET-s.artworks.length));
+   const results=await Promise.all(batch.map(async (p,index)=>{
+    await delay(index*240);
+    try{return {item:await acquire(env,s,p)}}catch(error){return {error:String(error),id:p.id}}
+   }));
+   for(const result of results){
+    if(result.item)s.artworks.push(result.item);
+    else if(s.failed.length<120)s.failed.push({id:result.id,reason:result.error.slice(0,180)});
    }
-   done++;sourceCalls++;
+   done+=batch.length;sourceCalls+=batch.length;
    await delay(1100);
   }
   if(s.artworks.length===0&&s.failed.length>=40){s.status="STOPPED_ALL_IMAGES_FAILED";s.lastError="No JPEG successfully imported in 40 attempts";}
