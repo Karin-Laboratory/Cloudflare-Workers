@@ -1,9 +1,9 @@
 import{MODEL_VERSION,validateCatalog,nextPair,auditResult}from"./recommender-v1.mjs";
 const $=id=>document.getElementById(id),names=[["4","すごい好き！"],["3","確かに好き"],["2","まあまあ"],["1","好きじゃない"],["0","なんでこれ？"]];
 let artworks=[],history=[],ratings=new Map(),seenAt=new Map(),shownAt=0,visiblePaused=0,hiddenAt=null,version=0,active=false,result=null,started=performance.now(),finalized=false;
-const sessionId=crypto.randomUUID(),pending=new Map(),storageKey="art-pending-v1";
+const sessionId=crypto.randomUUID(),pending=new Map(),sending=new Set(),storageKey="art-pending-v1";
 try{for(const e of JSON.parse(localStorage.getItem(storageKey)||"[]"))pending.set(e.eventId,e)}catch{}
-function flush(){for(const [id,e]of pending)fetch("/api/events",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(e),keepalive:true}).then(r=>{if(r.ok){pending.delete(id);save()}}).catch(()=>{})}
+function flush(){for(const [id,e]of pending){if(sending.has(id))continue;sending.add(id);fetch("/api/events",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(e),keepalive:true}).then(r=>{if(r.ok){pending.delete(id);save()}}).catch(()=>{}).finally(()=>sending.delete(id))}}
 function save(){try{localStorage.setItem(storageKey,JSON.stringify([...pending.values()].slice(-150)))}catch{}}
 function emit(type,body={},beacon=false){const e={type,sessionId,eventId:crypto.randomUUID(),model:MODEL_VERSION,at:new Date().toISOString(),elapsedMs:Math.round(performance.now()-started),...body};pending.set(e.eventId,e);save();if(beacon&&navigator.sendBeacon)try{navigator.sendBeacon("/api/events",new Blob([JSON.stringify(e)],{type:"application/json"}))}catch{}flush()}
 const esc=v=>String(v??"").replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;");
