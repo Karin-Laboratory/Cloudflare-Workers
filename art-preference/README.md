@@ -1,6 +1,6 @@
 # どっちの絵が好き？ / Art Preference
 
-公開リポジトリ [Cloudflare-Workers](https://github.com/Karin-Laboratory/Cloudflare-Workers) 内の独立したアプリです。候補URL: `https://art.karin-lab.com`（DNS/Worker routeの設定完了までは**未公開**）。
+公開リポジトリ [Cloudflare-Workers](https://github.com/Karin-Laboratory/Cloudflare-Workers) 内の独立したアプリです。公開URL: `https://art.karin-lab.com`。2026-11-07、Cloudflare Worker `karin-art-preference` の作成・独自ドメイン割当・DNS登録をAPIで確認済み（外部ブラウザからの表示確認は未完了）。
 
 ## 現状（2026-11-07）
 
@@ -27,7 +27,7 @@
 - `data/preview-artworks.json`: 未検証デモ用データ（本番データではない）
 - `scripts/prepare-artworks.mjs`: Art Institute of Chicago Open Access APIから権利付きの原候補を再現可能に採取する補助スクリプト
 
-このアプリが属する公開モノレポでは既存のサービスごとに別設定でデプロイしています。他サービスへの影響を避け、`art-preference/`を単独デプロイしてください。
+初回の公開は `proxy-worker.js` と同じロジックの Worker をCloudflare API経由で独立デプロイ。公開コンテンツはGitHubの固定コミット `49d72105fb9c3cea50f9373ab1faa922fd4fed7a` から読み、ブラウザの実行コードは勝手に変わりません。画像は現段階ではCommons外部配信、正式版ではR2 `karin-art-images` に移行します。\n\nこのアプリが属する公開モノレポでは既存のサービスごとに別設定でデプロイしています。他サービスへの影響を避け、`art-preference/`を単独デプロイしてください。
 
 ## 開発
 
