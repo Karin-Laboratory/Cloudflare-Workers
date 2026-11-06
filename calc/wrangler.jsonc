@@ -1,0 +1,7 @@
+{
+  "name": "karin-calc",
+  "main": "dist/worker.js",
+  "compatibility_date": "2026-11-06",
+  "workers_dev": false,
+  "routes": [{ "pattern": "calc.karin-lab.com", "custom_domain": true }]
+}
