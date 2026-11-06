@@ -9,7 +9,7 @@ async function collect(){
  const groups=await Promise.all(ARTISTS.map(async q=>{
   const u=new URL("https://api.artic.edu/api/v1/artworks/search");u.searchParams.set("q",q);u.searchParams.set("limit","40");u.searchParams.set("fields","id,title,artist_title,image_id,is_public_domain,artwork_type_title,classification_title,thumbnail");
   const r=await fetch(u.toString());if(!r.ok)return[];const json=await r.json();
-  return (json.data||[]).filter(p=>p.is_public_domain===true&&p.image_id&&/painting/i.test((p.artwork_type_title||"")+" "+(p.classification_title||""))).slice(0,5);
+  return (json.data||[]).filter(p=>p.is_public_domain===true&&p.image_id&&/painting/i.test((p.artwork_type_title||"")+" "+(p.classification_title||""))).slice(0,4);
  }));
  const candidate=[];const used=new Set();
  for(const group of groups)for(const p of group)if(!used.has(p.id)){
