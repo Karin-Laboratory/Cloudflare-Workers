@@ -1,9 +1,21 @@
 // Static, deterministic demonstration model. NOT a validated preference diagnosis.
 // Production must replace preview-artworks.json with a provenance-checked 1,024-painting manifest.
-const VERSION="preview-v0.1";
+const VERSION="preview-v0.3";
 const $$=id=>document.getElementById(id);
-const {artworks:CATALOG}=await (await fetch("./data/preview-artworks.json",{cache:"no-store"})).json();
-const D=CATALOG[0].features.length;
+let CATALOG=[];
+try {
+  const response=await fetch("./data/preview-artworks.json",{cache:"no-store"});
+  if(!response.ok)throw new Error("作品データ HTTP "+response.status);
+  const json=await response.json();
+  if(!Array.isArray(json.artworks)||json.artworks.length<19)throw new Error("作品数が不足しています");
+  CATALOG=json.artworks;
+} catch(error) {
+  document.getElementById("question").textContent="作品一覧を読み込めませんでした。";
+  const retry=document.createElement("button");retry.className="secondary";retry.textContent="再読み込み";
+  retry.onclick=()=>location.reload();document.getElementById("paintings").append(retry);
+  console.error("Catalog load failed",error);
+}
+const D=CATALOG[0]?.features?.length||6;
 let history=[],seen=new Set(),bad=new Set(),currentPair=[],displayedAt=0,round=0,epoch=0;
 const dot=(a,b)=>a.reduce((s,x,i)=>s+x*b[i],0);
 const subtract=(a,b)=>a.map((x,i)=>x-b[i]);
@@ -41,10 +53,10 @@ function nextPair(){
 function choiceImage(p,index,token){
  const button=document.createElement("button");button.type="button";button.className="art";
  button.setAttribute("aria-label",`作品 ${index===0?"A":"B"} を選ぶ`);
- const img=document.createElement("img");img.alt=`絵画 ${index===0?"A":"B"}`;img.src=p.image;img.decoding="async";img.loading="eager";
+ const img=document.createElement("img");img.alt=`絵画 ${index===0?"A":"B"}`;img.decoding="async";img.loading="eager";
  button.append(img);
  img.addEventListener("error",()=>{if(p.fallback_image&&!img.dataset.fallback){img.dataset.fallback="true";img.src=p.fallback_image;return}if(token!==epoch)return;bad.add(p.id);displayedAt=0;showRound()});
- button.addEventListener("click",()=>choose(index));return {button,img};
+ button.addEventListener("click",()=>choose(index));img.src=p.image;return {button,img};
 }
 async function showRound(){
  round=history.length;
@@ -90,4 +102,4 @@ function finish(){
  $$("audit").textContent=JSON.stringify({version:VERSION,questions:history,normalizedPreference:u,side:{left,right:8-left,biasCorrection:"none",note:extreme?"極端な左右選択を観測。ただし8問では原因を特定できない。":"個人の位置効果を確定する証拠なし"},recommended:candidates.slice(0,3).map(x=>x.id)},null,2);
 }
 $$("restart").addEventListener("click",()=>{history=[];seen=new Set();bad=new Set();currentPair=[];displayedAt=0;$$("results").classList.add("hidden");$$("quiz").classList.remove("hidden");showRound()});
-showRound();
+if(CATALOG.length>=19)showRound();
