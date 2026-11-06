@@ -1,0 +1,24 @@
+name: Art preference preview checks
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'art-preference/**'
+      - '.github/workflows/check-art-preference.yml'
+  pull_request:
+    paths:
+      - 'art-preference/**'
+      - '.github/workflows/check-art-preference.yml'
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate JavaScript syntax and fixture assumptions
+        working-directory: art-preference
+        run: npm run check
