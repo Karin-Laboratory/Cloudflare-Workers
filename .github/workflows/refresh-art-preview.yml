@@ -1,0 +1,33 @@
+name: Refresh art preview with museum-verified images
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'art-preference/scripts/rebuild-preview.mjs'
+      - '.github/workflows/refresh-art-preview.yml'
+permissions:
+  contents: write
+jobs:
+  replace:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify public domain painting images and freeze preview catalog
+        run: node art-preference/scripts/rebuild-preview.mjs
+      - name: Validate dataset
+        working-directory: art-preference
+        run: npm run check
+      - name: Commit verified preview dataset
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add art-preference/data/preview-artworks.json
+          if ! git diff --cached --quiet; then
+            git commit -m "data(art): replace unverified examples with checked public-domain paintings"
+            git push
+          fi
