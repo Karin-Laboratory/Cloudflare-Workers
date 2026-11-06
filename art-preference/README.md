@@ -38,3 +38,12 @@ npx wrangler deploy
 ```
 
 `wrangler.jsonc` は独立したCloudflare Workerを作るための設定です。独自ドメイン `art.karin-lab.com` は追加でCloudflare route/custom domainが必要です。シークレットはGitHubに保存しません。
+
+## 2026-11-07 画像表示修正 v0.2
+
+- 作業前の `main` をバックアップブランチ [backup/art-preference-preview-20261107](https://github.com/Karin-Laboratory/Cloudflare-Workers/tree/backup/art-preference-preview-20261107) に保全（起点 commit `eeef87edd34465a670573dba79fe15c55603ecf7`）。
+- 旧プレビューの未確認 Wikimedia URLを公開経路から外し、シカゴ美術館公式APIの `is_public_domain=true`、`artwork_type_title=Painting`、公式IIIF画像へのGET応答を条件にした暫定作品カタログを返す専用Workerへ変更。
+- 公開Workerは画像を最大32件選び、配信カタログをCloudflareエッジに24時間キャッシュする。**これは正式な固定1,024作品モデルではない**。正式公開にはR2とGitHubのmanifestでデータを完全固定する必要がある。
+- 作品画像が読み込めなかった場合は、美術館APIのサムネイルにフォールバックするか別の作品ペアへ自動で切り替える。従来の「作品データの監査待ちです」画面を表示しない。
+- GitHub Actions `refresh-art-preview.yml` に、公式APIによる画像確認とプレビュー作品一覧の保存手順を登録。実行完了の確認は別途必要。
+- Cloudflare Workerの更新APIとドメイン割当は成功したが、ブラウザでのリロード後の全８問操作は未検証。
