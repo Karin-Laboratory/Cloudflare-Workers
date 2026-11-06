@@ -1,50 +1,65 @@
-// Backup ref: backup/art-preference-preview-20261107 (immutable recovery point).
-// Temporary museum-verified preview gateway; final dataset is a frozen R2+GitHub manifest.
-const SOURCE="bf6ecbca9bb82161f5e900a5b501d1ff561ec579";
+// Static application code is pinned to an immutable Git commit. Preview catalog is temporary.
+// Backup: backup/art-preference-preview-20261107
+const SOURCE="b68cb47f2acf9ef77c1275287801fdba4299978d";
 const BASE="https://raw.githubusercontent.com/Karin-Laboratory/Cloudflare-Workers/"+SOURCE+"/art-preference/";
 const FILES={"/":"index.html","/index.html":"index.html","/app.js":"app.js"};
-const ARTISTS=["Monet","Van Gogh","Renoir","Cezanne","Seurat","Pissarro","Morisot","Cassatt","Manet","Gauguin"];
+const ARTISTS=["Monet","Van Gogh","Renoir","Cezanne","Seurat","Pissarro","Morisot","Cassatt","Manet","Gauguin","Gustave Caillebotte","Whistler"];
 const TOKENS=[/person|people|woman|man|figure/,/red|yellow|blue|color|bright/,/line|building|geometric|roof/,/crowd|many|busy|dense/,/pattern|repeat|rows/,/brushstroke|texture|thick/];
+const painting=p=>p&&p.is_public_domain===true&&typeof p.image_id==="string"&&p.image_id.length>10&&/painting/i.test((p.artwork_type_title||"")+" "+(p.classification_title||""));
 async function collect(){
- const groups=await Promise.all(ARTISTS.map(async q=>{
-  const u=new URL("https://api.artic.edu/api/v1/artworks/search");u.searchParams.set("q",q);u.searchParams.set("limit","40");u.searchParams.set("fields","id,title,artist_title,image_id,is_public_domain,artwork_type_title,classification_title,thumbnail");
-  const r=await fetch(u.toString());if(!r.ok)return[];const json=await r.json();
-  return (json.data||[]).filter(p=>p.is_public_domain===true&&p.image_id&&/painting/i.test((p.artwork_type_title||"")+" "+(p.classification_title||""))).slice(0,4);
- }));
- const candidate=[];const used=new Set();
- for(const group of groups)for(const p of group)if(!used.has(p.id)){
-  used.add(p.id);candidate.push(p);
- }
- const checked=await Promise.all(candidate.map(async p=>{
-  const image="https://www.artic.edu/iiif/2/"+p.image_id+"/full/843,/0/default.jpg";
-  try{const r=await fetch(image,{method:"GET"});if(!r.ok||!(r.headers.get("content-type")||"").startsWith("image/"))return null;await r.body?.cancel()}catch{return null}
-  const txt=(p.thumbnail?.alt_text||"").toLowerCase();
-  return{id:"aic-"+p.id,title:p.title,artist:p.artist_title||"Artist unknown",image,fallback_image:p.thumbnail?.lqip||null,features:TOKENS.map((re,i)=>re.test(txt)?0.8:0.3+((p.id+i*17)%5)*0.06),is_public_domain:true,source_url:"https://www.artic.edu/artworks/"+p.id,image_checked:true};
- }));
- const artworks=checked.filter(Boolean).slice(0,32);
- if(artworks.length<19)throw new Error("Not enough public-domain paintings with verified images: "+artworks.length);
- return JSON.stringify({status:"MUSEUM_IMAGE_CHECKED_PREVIEW",note:"Temporary museum-verified live preview; production data and coefficients must be frozen and audited.",artworks});
-}
-async function serve(request){
- if(!["GET","HEAD"].includes(request.method))return new Response("Method not allowed",{status:405});
- const path=new URL(request.url).pathname;
- if(path==="/health")return Response.json({ok:true,version:"preview-museum-v0.2",source:SOURCE});
- if(path==="/data/preview-artworks.json"){
-  const key=new Request("https://art.karin-lab.com/data/preview-artworks.json");
-  let cached=await caches.default.match(key);
-  if(!cached){
-   try{
-    const body=await collect();
-    cached=new Response(body,{headers:{"content-type":"application/json; charset=utf-8","cache-control":"public,max-age=86400","x-catalog-source":"aic-api-image-verified"}});
-    await caches.default.put(key,cached.clone());
-   }catch(e){return Response.json({error:"catalog_unavailable",message:String(e)},{status:503})}
+  // No preflight download: an entire catalog must never fail due to one bad painting URL.
+  // These queries only obtain metadata from AIC official open-access API.
+  const queries=await Promise.all(ARTISTS.map(async artist=>{
+    const u=new URL("https://api.artic.edu/api/v1/artworks/search");
+    u.searchParams.set("q",artist);
+    u.searchParams.set("limit","50");
+    u.searchParams.set("fields","id,title,artist_title,image_id,is_public_domain,artwork_type_title,classification_title,thumbnail");
+    try {const r=await fetch(u.toString());if(!r.ok)return [];const j=await r.json();return (j.data||[]).filter(painting).slice(0,8)}
+    catch{return []}
+  }));
+  const all=[];const used=new Set();
+  // Round-robin prevents one artist from filling the whole list.
+  for(let i=0;i<8;i++)for(const g of queries){
+    const p=g[i];if(!p||used.has(p.id))continue;used.add(p.id);all.push(p);
   }
-  return request.method==="HEAD"?new Response(null,{headers:cached.headers}):cached;
- }
- const file=FILES[path];if(!file)return new Response("Not found",{status:404});
- const upstream=await fetch(BASE+file,{cf:{cacheTtl:600,cacheEverything:true}});
- if(!upstream.ok)return new Response("Source unavailable",{status:502});
- const type=file.endsWith(".html")?"text/html; charset=utf-8":"text/javascript; charset=utf-8";
- return new Response(request.method==="HEAD"?null:upstream.body,{headers:{"content-type":type,"cache-control":"public,max-age=600","x-content-type-options":"nosniff","referrer-policy":"no-referrer"}});
+  const artworks=all.slice(0,42).map(p=>{
+    const txt=(p.thumbnail?.alt_text||"").toLowerCase();
+    return {id:"aic-"+p.id,title:p.title,artist:p.artist_title||"Unknown",
+      image:"/image/"+encodeURIComponent(p.image_id),
+      fallback_image:"https://www.artic.edu/iiif/2/"+p.image_id+"/full/400,/0/default.jpg",
+      features:TOKENS.map((re,i)=>re.test(txt)?0.8:0.3+((p.id+i*17)%5)*0.06),
+      is_public_domain:true,source_url:"https://www.artic.edu/artworks/"+p.id};
+  });
+  if(artworks.length<19)throw new Error("insufficient_paintings:"+artworks.length+",group_counts="+queries.map(x=>x.length).join(","));
+  return JSON.stringify({status:"AIC_METADATA_PREVIEW_V03",note:"Temporary live museum metadata. A frozen 1024-work dataset and audited model are pending.",artworks});
 }
-addEventListener("fetch",event=>event.respondWith(serve(event.request)));
+async function getCatalog(){
+  const key=new Request("https://art.karin-lab.com/__cache/catalog-v03");
+  const cached=await caches.default.match(key);if(cached)return cached;
+  const data=await collect();const response=new Response(data,{headers:{"content-type":"application/json; charset=utf-8","cache-control":"public,max-age=1800","x-catalog-source":"art-institute-chicago"}});
+  await caches.default.put(key,response.clone());return response;
+}
+async function handler(req){
+  const url=new URL(req.url);
+  if(req.method!=="GET"&&req.method!=="HEAD")return new Response("Method not allowed",{status:405});
+  if(url.pathname==="/health")return Response.json({ok:true,version:"preview-v0.3",source:SOURCE});
+  if(url.pathname==="/data/preview-artworks.json"){
+    try {const r=await getCatalog();return req.method==="HEAD"?new Response(null,{headers:r.headers}):r}
+    catch(e){return Response.json({error:"catalog_unavailable",message:String(e)},{status:503,headers:{"cache-control":"no-store"}})}
+  }
+  if(url.pathname.startsWith("/image/")){
+    const id=url.pathname.slice(7);
+    if(!/^[a-f0-9-]{32,40}$/i.test(id))return new Response("Invalid image id",{status:400});
+    const target="https://www.artic.edu/iiif/2/"+id+"/full/843,/0/default.jpg";
+    let response;
+    try{response=await fetch(target,{cf:{cacheEverything:true,cacheTtl:86400}})}
+    catch{return new Response("Image source error",{status:502})}
+    if(!response.ok)return new Response("Artwork image unavailable",{status:response.status});
+    return new Response(req.method==="HEAD"?null:response.body,{status:200,headers:{"content-type":response.headers.get("content-type")||"image/jpeg","cache-control":"public,max-age=86400","x-content-type-options":"nosniff"}});
+  }
+  const file=FILES[url.pathname];if(!file)return new Response("Not found",{status:404});
+  const upstream=await fetch(BASE+file,{cf:{cacheEverything:true,cacheTtl:300}});
+  if(!upstream.ok)return new Response("Source unavailable",{status:502});
+  return new Response(req.method==="HEAD"?null:upstream.body,{status:200,headers:{"content-type":file.endsWith(".html")?"text/html; charset=utf-8":"text/javascript; charset=utf-8","cache-control":"public,max-age=300","x-content-type-options":"nosniff","referrer-policy":"no-referrer"}});
+}
+addEventListener("fetch",event=>event.respondWith(handler(event.request)));
