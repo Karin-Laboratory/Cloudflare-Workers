@@ -1,0 +1,25 @@
+name: Art site unit tests (staging)
+on:
+  push:
+    branches: [feature/art-1024-r2-20261107]
+    paths:
+      - '.github/workflows/art-1024-unit.yml'
+      - 'art-preference/recommender-v1.mjs'
+      - 'art-preference/app-v1.js'
+      - 'art-preference/tests/app-v1.test.mjs'
+      - 'art-preference/tests/recommender-v1.test.mjs'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --check art-preference/recommender-v1.mjs
+      - run: node --check art-preference/app-v1.js
+      - run: node --test art-preference/tests/recommender-v1.test.mjs art-preference/tests/app-v1.test.mjs
