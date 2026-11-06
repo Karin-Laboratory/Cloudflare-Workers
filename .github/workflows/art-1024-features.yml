@@ -1,0 +1,70 @@
+name: Art 1024 frozen features (OpenCLIP)
+on:
+  push:
+    branches: [feature/art-1024-r2-20261107]
+    paths:
+      - '.github/workflows/art-1024-features.yml'
+      - 'art-preference/scripts/extract_openclip_features.py'
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: art-1024-feature-freeze
+  cancel-in-progress: false
+jobs:
+  features:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/art-1024-r2-20261107
+          persist-credentials: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Test frozen 8-choice recommender
+        run: node --test art-preference/tests/recommender-v1.test.mjs
+      - name: Wait for the R2 catalog to be complete
+        shell: bash
+        run: |
+          set -euo pipefail
+          for i in $(seq 1 75); do
+            if curl -fsSL --max-time 20 'https://art.karin-lab.com/api/catalog' -o /tmp/art-catalog.json; then
+              if python -c 'import json;d=json.load(open("/tmp/art-catalog.json"));assert d["count"]==1024 and d["status"]=="FROZEN_METADATA_AND_IMAGES"'; then
+                echo "1024 image manifest ready"; exit 0
+              fi
+            fi
+            echo "Catalog not yet frozen ($i/75)"
+            sleep 45
+          done
+          echo "Catalog not frozen; refusing feature publication"
+          exit 1
+      - name: Install existing feature extractors
+        run: |
+          python -m pip install --disable-pip-version-check 'numpy==1.26.4' 'scikit-learn==1.5.2' 'pillow==11.1.0' 'requests==2.32.3' 'open_clip_torch==2.29.0' 'torch==2.5.1'
+      - name: Extract and validate all 1024 images and features
+        env:
+          ART_BASE_URL: https://art.karin-lab.com
+          ART_FEATURE_OUTPUT: art-preference/data/features-v1.json
+        run: python art-preference/scripts/extract_openclip_features.py
+      - name: Commit immutable feature artifact to development branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add art-preference/data/features-v1.json
+          git diff --cached --quiet && exit 0
+          git commit -m 'data(art): freeze 1024 OpenCLIP PCA vectors and source image SHA'
+          git push origin HEAD:feature/art-1024-r2-20261107
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: art-1024-feature-report
+          path: art-preference/data/features-v1.json
+          if-no-files-found: ignore
+          retention-days: 14
