@@ -1,7 +1,7 @@
 // Preview release gateway: immutable repository snapshot, not a GitHub branch tip.
 // Cloudflare Worker mirrors static files from the pinned GitHub commit.
 // Replace this gateway with Workers Static Assets when 1,024 R2 images are ready.
-const SOURCE_COMMIT="49d72105fb"; // pinned prefix of full GitHub commit, immutable
+const SOURCE_COMMIT="49d72105fb9c3cea50f9373ab1faa922fd4fed7a"; // pinned prefix of full GitHub commit, immutable
 const BASE="https://raw.githubusercontent.com/Karin-Laboratory/Cloudflare-Workers/"+SOURCE_COMMIT+"/art-preference/";
 const PATHS=new Map([["/","index.html"],["/index.html","index.html"],["/app.js","app.js"],["/data/preview-artworks.json","data/preview-artworks.json"]]);
 addEventListener("fetch",event=>event.respondWith(handle(event.request)));
