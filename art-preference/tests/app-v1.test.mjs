@@ -21,7 +21,7 @@ globalThis.requestAnimationFrame=fn=>fn();
 let tick=1000;
 globalThis.performance={now:()=>tick+=200};
 globalThis.localStorage={getItem:()=>null,setItem:()=>{}};
-globalThis.navigator={sendBeacon:()=>true};
+Object.defineProperty(globalThis,"navigator",{configurable:true,value:{sendBeacon:()=>true}});
 globalThis.fetch=async (url,opts={})=>{if(url==="/api/catalog")return{ok:true,json:async()=>({status:"FROZEN_METADATA_AND_IMAGES",count:1024,artworks})};if(url==="/api/features")return{ok:true,json:async()=>({status:"FEATURES_FROZEN_UNVALIDATED_RECOMMENDATION",count:1024,items:features})};if(url==="/api/events"){reports.push(JSON.parse(opts.body));return{ok:true,status:204}};throw Error(url)};
 async function flush(){for(let i=0;i<20;i++)await Promise.resolve()}
 test("1024 verified paintings, 8 clicks, 3 unseen results and passive revisions",async()=>{
