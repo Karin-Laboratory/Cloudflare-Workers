@@ -1,0 +1,12 @@
+{
+  "name": "karin-art-preference",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "check": "node --check app.js && node --check scripts/prepare-artworks.mjs && node --test tests/*.test.mjs",
+    "build": "node scripts/prepare-artworks.mjs"
+  },
+  "devDependencies": {
+    "wrangler": "^4.45.0"
+  }
+}
