@@ -1,0 +1,45 @@
+name: Verify art site in real Chromium browser
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'art-preference/app.js'
+      - 'art-preference/index.html'
+      - 'art-preference/proxy-worker.js'
+      - 'art-preference/tests/browser-smoke.mjs'
+      - '.github/workflows/art-browser-smoke.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  chromium:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install browser
+        run: |
+          npm install --no-save --no-package-lock playwright@1.56.1
+          npx playwright install --with-deps chromium
+      - name: Verify eight painting choices and recommendation result
+        id: browser
+        continue-on-error: true
+        run: node art-preference/tests/browser-smoke.mjs
+      - name: Save actual browser result to GitHub
+        if: always()
+        run: |
+          if [ -f art-preference/tests/live-smoke-result.json ]; then
+            git config user.name 'github-actions[bot]'
+            git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+            git add art-preference/tests/live-smoke-result.json
+            if ! git diff --cached --quiet; then
+              git commit -m "test(art): record live Chromium eight-round result"
+              git push
+            fi
+          fi
+      - name: Fail when browser smoke failed
+        if: steps.browser.outcome == 'failure'
+        run: exit 1
