@@ -47,3 +47,14 @@ npx wrangler deploy
 - 作品画像が読み込めなかった場合は、美術館APIのサムネイルにフォールバックするか別の作品ペアへ自動で切り替える。従来の「作品データの監査待ちです」画面を表示しない。
 - GitHub Actions `refresh-art-preview.yml` に、公式APIによる画像確認とプレビュー作品一覧の保存手順を登録。実行完了の確認は別途必要。
 - Cloudflare Workerの更新APIとドメイン割当は成功したが、ブラウザでのリロード後の全８問操作は未検証。
+
+## 2026-11-07 追加復旧 v0.4（画面が空白になる障害）
+
+- 原因: 公開Workerがリクエストごとに美術館APIを呼び、一覧取得失敗でHTTP 503になっていた。JavaScriptも一覧が取得できないと起動できなかった。
+- 修正: 起動時の外部API・画像ネットワーク依存をゼロにした。app.js内に固定した32枚の自作SVG試験画像と仮特徴量を使用。
+- 初回８問の二択・推薦３点を実コードのJavaScript DOMシミュレーションでPASS確認。tests/interactive-flow.test.mjsを追加。
+- Cloudflare karin-art-preference は固定GitHubコミット 76d9d7e446d4a760a514fea8de313d9620678c1d のHTML/JSを提供。API更新成功。
+- 実ブラウザから公開URLの８問完走テストは未確認。GitHub ActionsのPlaywrightテストを登録済みだが結果取得は未完了。
+- v0.4の32画像は本物の美術館作品ではない。表示機能検証用のオリジナル画像。推薦精度の根拠にしてはならない。
+- 本物の絵画JPEGを取得してGitHubに固定保存するバッチ scripts/build-frozen-preview.mjs と対応CIを追加済み。生成・権利監査成功を確認するまで実作品モードに切り替えない。
+- 復元用ブランチ: backup/art-before-static-fallback-20261107。
