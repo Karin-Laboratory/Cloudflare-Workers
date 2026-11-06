@@ -1,6 +1,6 @@
 // Static application code is pinned to an immutable Git commit. Preview catalog is temporary.
 // Backup: backup/art-preference-preview-20261107
-const SOURCE="b68cb47f2acf9ef77c1275287801fdba4299978d";
+const SOURCE="6c851a0d30d3721b9fa3410df715fa3ee0d3c77a";
 const BASE="https://raw.githubusercontent.com/Karin-Laboratory/Cloudflare-Workers/"+SOURCE+"/art-preference/";
 const FILES={"/":"index.html","/index.html":"index.html","/app.js":"app.js"};
 const ARTISTS=["Monet","Van Gogh","Renoir","Cezanne","Seurat","Pissarro","Morisot","Cassatt","Manet","Gauguin","Gustave Caillebotte","Whistler"];
