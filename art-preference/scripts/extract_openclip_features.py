@@ -21,12 +21,11 @@ DIM=16
 torch.manual_seed(1024)
 np.random.seed(1024)
 torch.set_num_threads(max(1,min(4,os.cpu_count() or 2)))
-session=requests.Session()
 def download(item):
     url=BASE+"/img/"+quote(item["id"],safe="")+".jpg"
     for attempt in range(4):
         try:
-            r=session.get(url,timeout=30)
+            r=requests.get(url,timeout=25)
             r.raise_for_status()
             binary=r.content
             digest=hashlib.sha256(binary).hexdigest()
@@ -44,7 +43,7 @@ def handcrafted(image):
     y=.2126*r+.7152*g+.0722*b
     edges=(np.mean(np.abs(y[1:,:]-y[:-1,:]))+np.mean(np.abs(y[:,1:]-y[:,:-1])))/2
     return np.array([y.mean(),(a.max(2)-a.min(2)).mean(),(r-b).mean(),y.std(),edges,(y<.4).mean()],dtype=np.float32)
-resp=session.get(BASE+"/api/catalog",timeout=30)
+resp=requests.get(BASE+"/api/catalog",timeout=30)
 resp.raise_for_status()
 catalog=resp.json()
 items=catalog.get("artworks",[])
@@ -54,15 +53,21 @@ if len({a["id"] for a in items})!=1024: raise SystemExit("duplicate IDs")
 model,_,transform=open_clip.create_model_and_transforms(MODEL,pretrained=PRETRAINED,device="cpu")
 model.eval()
 embeddings=[];visual=[]
-for idx,item in enumerate(items):
-    image=download(item)
-    visual.append(handcrafted(image))
-    with torch.no_grad():
-        out=model.encode_image(transform(image).unsqueeze(0))
-        vec=out.float().cpu().numpy()[0]
-        vec/=max(1e-9,np.linalg.norm(vec))
-        embeddings.append(vec)
-    if (idx+1)%50==0: print(f"verified and embedded {idx+1}/1024",flush=True)
+# Concurrent network I/O with bounded image batches; deterministic input order is preserved.
+# Batched CPU inference is significantly faster than 1024 individual model calls.
+with ThreadPoolExecutor(max_workers=6) as executor:
+    for first in range(0,len(items),16):
+        batch=items[first:first+16]
+        images=list(executor.map(download,batch))
+        visual.extend(handcrafted(img) for img in images)
+        tensors=torch.stack([transform(img) for img in images])
+        with torch.no_grad():
+            output=model.encode_image(tensors)
+            vectors=output.float().cpu().numpy()
+            vectors/=np.maximum(np.linalg.norm(vectors,axis=1,keepdims=True),1e-9)
+            embeddings.extend(vectors)
+        if (first+len(batch))%64==0 or first+len(batch)==len(items):
+            print(f"verified and embedded {first+len(batch)}/1024",flush=True)
 raw=np.stack(embeddings).astype(np.float64)
 pca=PCA(n_components=DIM,svd_solver="full")
 coords=pca.fit_transform(raw)
