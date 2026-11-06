@@ -1,7 +1,7 @@
 // Static preview stays available until a validated production dataset is released.
 // Additional R2-backed routes expose frozen CC0 artwork images without museum API calls.
 const COMMIT="76d9d7e446d4a760a514fea8de313d9620678c1d";
-const PROD_COMMIT="0afc7247119a94538c94bc29085cf59e2040f279";
+const PROD_COMMIT="29e2fcefce7160f93dc46a877ba8bfbd823d1ee3";
 const GITHUB="https://raw.githubusercontent.com/Karin-Laboratory/Cloudflare-Workers/";
 const PREVIEW={"/":"index.html","/index.html":"index.html","/app.js":"app.js"};
 const PRODUCTION={"/":"index-v1.html","/index.html":"index-v1.html","/app.js":"app-v1.js","/app-v1.js":"app-v1.js","/recommender-v1.mjs":"recommender-v1.mjs"};
