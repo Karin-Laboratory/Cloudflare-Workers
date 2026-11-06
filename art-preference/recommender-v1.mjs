@@ -75,21 +75,20 @@ export function recommend(items,records,{timeCorrection=true,count=3}={}){
  const u=preference(records,byId,{timeCorrection});
  const base=items.filter(x=>!exposed.has(x.id)).map(x=>({...x,score:dot(u,x.features)/Math.max(1e-6,norm(x.features))}));
  base.sort((a,b)=>b.score-a.score||a.id.localeCompare(b.id));
- const chosen=[],usedArtists=new Set();
+ const chosen=[];
  for(let k=0;k<count;k++){
   const options=base.slice(0,Math.min(100,base.length)).filter(x=>!chosen.some(y=>x.id===y.id));
   options.sort((a,b)=>{
    const value=x=>{
     const diversity=chosen.length?Math.min(...chosen.map(y=>1-cosine(x.features,y.features))):0;
-    const artistPenalty=usedArtists.has(x.artist)?0.08:0;
-    return x.score+0.10*diversity-artistPenalty;
+    return x.score+0.10*diversity;
    };
    return value(b)-value(a)||a.id.localeCompare(b.id);
   });
   if(!options.length)break;
-  chosen.push(options[0]);usedArtists.add(options[0].artist);
+  chosen.push(options[0]);
  }
- return {version:MODEL_VERSION,questionCount:records.length,timingMode:timeCorrection?"two-step-unvalidated":"none",sideBiasMode:"none: position counterbalanced",preference:u,recommendations:chosen};
+ return {version:MODEL_VERSION,questionCount:records.length,timingMode:timeCorrection?"two-step-unvalidated":"none",sideBiasMode:"none: deterministic seeded positions; balance not validated",preference:u,recommendations:chosen};
 }
 export function auditResult(items,records,options){
  const result=recommend(items,records,options);
