@@ -84,8 +84,45 @@ async function run(env){
  await writeJSON(env,STATE,s);
  return s;
 }
+async function synchronizeFeatures(env){
+ const present=await env.ART_IMAGES.head(PREFIX+"/features.json");
+ if(present)return true;
+ const saved=await env.ART_IMAGES.get(PREFIX+"/catalog.json");
+ if(!saved)return false;
+ const catalog=await saved.json();
+ if(catalog.count!==1024||catalog.artworks.length!==1024)return false;
+ const endpoint="https://raw.githubusercontent.com/Karin-Laboratory/Cloudflare-Workers/feature/art-1024-r2-20261107/art-preference/data/features-v1.json";
+ let response;try{response=await fetch(endpoint,{headers:{"cache-control":"no-cache"},signal:AbortSignal.timeout(20000)})}catch{return false}
+ if(!response.ok)return false;
+ const raw=await response.text();
+ if(raw.length>3500000)return false;
+ let values;try{values=JSON.parse(raw)}catch{return false}
+ if(values.count!==1024||!Array.isArray(values.items)||values.items.length!==1024||values.status!=="FEATURES_FROZEN_UNVALIDATED_RECOMMENDATION"||!values.version?.startsWith("openclip-"))return false;
+ const m=new Map(catalog.artworks.map(x=>[x.id,x.image_sha256]));
+ if(m.size!==1024||values.items.some(x=>!m.has(x.id)||m.get(x.id)!==x.image_sha256||!Array.isArray(x.features)||x.features.length<4||!x.features.every(Number.isFinite)))return false;
+ const digest=hex(new Uint8Array(await crypto.subtle.digest("SHA-256",new TextEncoder().encode(raw))));
+ await env.ART_IMAGES.put(PREFIX+"/features.json",raw,{httpMetadata:{contentType:"application/json"},customMetadata:{sha256:digest,githubBranch:"feature/art-1024-r2-20261107"}});
+ await writeJSON(env,PREFIX+"/ready.json",{ready:true,status:"FEATURES_FROZEN",count:1024,model:values.version,feature_sha256:digest,source_catalog:catalog.version,at:new Date().toISOString(),model_accuracy:"NOT_VALIDATED"});
+ return true;
+}
+
 export default {
  async fetch(){return new Response("Not found",{status:404})},
  async scheduled(_event,env,ctx){ctx.waitUntil(run(env))},
- async queue(batch,env){for(const msg of batch.messages){try{if(msg.body?.job==='probe'){const urls=['https://openaccess-api.clevelandart.org/api/artworks/?cc0&has_image=1&type=Painting&limit=1','https://collectionapi.metmuseum.org/public/collection/v1/objects/436524','https://api.artic.edu/api/v1/artworks/27992'];const checks=[];for(const url of urls){try{const r=await fetch(url,{signal:AbortSignal.timeout(12000)});checks.push({url,status:r.status,contentType:r.headers.get('content-type'),sample:(await r.text()).slice(0,900)})}catch(e){checks.push({url,error:String(e)})}}await writeJSON(env,PREFIX+'/probe.json',{checks,at:new Date().toISOString()});msg.ack();continue}const s=await run(env);if(s?.status==='IN_PROGRESS'&&Date.now()<EXPIRES&&!s.lastError){await env.ART_QUEUE.send({job:'cma-1024',next:s.artworks.length},{delaySeconds:2})}msg.ack()}catch(error){msg.retry({delaySeconds:120})}}}
+ async queue(batch,env){
+  for(const msg of batch.messages){
+   try{
+    if(msg.body?.job==="sync-features"){
+     const ok=await synchronizeFeatures(env);
+     if(!ok&&Date.now()<EXPIRES)await env.ART_QUEUE.send({job:"sync-features"},{delaySeconds:180});
+     msg.ack();continue;
+    }
+    if(msg.body?.job==="probe"){msg.ack();continue}
+    const state=await run(env);
+    if(state?.status==="IN_PROGRESS"&&Date.now()<EXPIRES&&!state.lastError)await env.ART_QUEUE.send({job:"cma-1024",next:state.artworks.length},{delaySeconds:2});
+    if(state?.status==="IMAGES_COMPLETE_FEATURES_PENDING")await env.ART_QUEUE.send({job:"sync-features"},{delaySeconds:180});
+    msg.ack()
+   }catch(error){msg.retry({delaySeconds:120})}
+  }
+ }
 };
