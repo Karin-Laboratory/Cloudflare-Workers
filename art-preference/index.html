@@ -26,7 +26,7 @@ small{color:#686c65}
 @media(max-width:600px){main{padding:13px}.art{min-height:220px;padding:6px}.art img{max-height:300px}.result-grid{grid-template-columns:1fr}.result{display:grid;grid-template-columns:110px 1fr;gap:12px}.result img{height:125px}.result div{align-self:center}}
 </style></head>
 <body><main><header><div class="eyebrow">KARIN-LAB / ART DISCOVERY</div><h1>どっちの絵が好き？</h1><p>知識はいりません。好きな方を、8回選ぶだけ。</p></header>
-<section id="quiz"><div class="progress"><div id="fill"></div></div><div id="question" aria-live="polite">作品を読み込んでいます…</div><div id="paintings" class="art-grid"></div><p class="note">作者名と作品名は、結果まで内緒です。</p></section>
+<section id="quiz"><div class="progress"><div id="fill"></div></div><div id="question" aria-live="polite">1 / 8   どちらが好き？</div><div id="paintings" class="art-grid"></div><p class="note">作者名と作品名は、結果まで内緒です。</p></section>
 <section id="results" class="hidden" aria-live="polite"><h2>あなたが好きそうな絵</h2><p>8回の選択から、まだ見ていない作品を選びました。</p><div id="recommendations" class="result-grid"></div><p id="explanation"></p><button class="secondary" id="restart">もう一度選ぶ</button><details style="margin-top:22px"><summary>判定の記録を見る</summary><pre id="audit" style="white-space:pre-wrap;overflow-wrap:anywhere;font-size:11px"></pre></details></section>
-<div class="notice"><b>研究用プレビュー v0.3</b><p>現在はシカゴ美術館のパブリックドメイン絵画による動作検証版です。作品一覧はまだ固定していません。人気上位1,024点の正式選定、利用条件監査、推薦精度検証は未完了です。鑑賞時間は端末内で処理し、サーバーに送信しません。判定結果は嗜好を保証するものではありません。</p><a href="https://github.com/Karin-Laboratory/Cloudflare-Workers/tree/main/art-preference">計算式・ソースを確認</a></div>
+<div class="notice"><b>研究用プレビュー v0.4</b><p>現在は通信トラブルを切り分けるための、オリジナル試験画像32枚による動作検証版です。美術館の実作品ではありません。人気上位1,024点の正式選定、利用条件監査、推薦精度検証は未完了です。鑑賞時間は端末内で処理し、サーバーに送信しません。判定結果は嗜好を保証するものではありません。</p><a href="https://github.com/Karin-Laboratory/Cloudflare-Workers/tree/main/art-preference">計算式・ソースを確認</a></div>
 </main><script type="module" src="./app.js"></script></body></html>
