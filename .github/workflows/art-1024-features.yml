@@ -10,10 +10,10 @@ permissions:
   contents: write
 concurrency:
   group: art-1024-feature-freeze
-  cancel-in-progress: false
+  cancel-in-progress: true
 jobs:
   features:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@v4
@@ -45,7 +45,8 @@ jobs:
           exit 1
       - name: Install existing feature extractors
         run: |
-          python -m pip install --disable-pip-version-check 'numpy==1.26.4' 'scikit-learn==1.5.2' 'pillow==11.1.0' 'requests==2.32.3' 'open_clip_torch==2.29.0' 'torch==2.5.1'
+          python -m pip install --disable-pip-version-check --index-url https://download.pytorch.org/whl/cpu 'torch==2.5.1' 'torchvision==0.20.1'
+          python -m pip install --disable-pip-version-check 'numpy==1.26.4' 'scikit-learn==1.5.2' 'pillow==11.1.0' 'requests==2.32.3' 'open_clip_torch==2.29.0'
       - name: Extract and validate all 1024 images and features
         env:
           ART_BASE_URL: https://art.karin-lab.com
