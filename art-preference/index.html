@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>どっちの絵が好き？ | Karin-Lab</title><meta name="description" content="8回、好きな絵を選ぶだけ。美術嗜好を静的モデルで推定します。">
+<style>
+:root{font-family:system-ui,-apple-system,"Noto Sans JP",sans-serif;color:#252624;background:#f7f5f0}*{box-sizing:border-box}
+body{margin:0}main{max-width:1060px;margin:auto;padding:24px 20px 80px}
+header{text-align:center;padding:26px 0 19px}h1{font-size:clamp(25px,5vw,40px);font-weight:600;letter-spacing:.06em;margin:.1em 0}
+p{line-height:1.8;color:#5b5e59}.eyebrow{font-size:11px;letter-spacing:.24em;color:#72746f}
+.progress{height:4px;background:#deddd5;border-radius:4px;margin:24px 0 35px;overflow:hidden}
+#fill{height:100%;background:#3b5147;width:0;transition:width .25s}
+#question{text-align:center;font-size:17px;margin:12px 0 24px}
+.art-grid{display:grid;grid-template-columns:1fr 1fr;gap:clamp(12px,3vw,30px)}
+.art{border:1px solid #d7d5ce;border-radius:12px;padding:12px;background:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;min-height:310px;transition:transform .13s,box-shadow .13s}
+.art:hover,.art:focus-visible{transform:translateY(-3px);box-shadow:0 8px 26px #1b271b18;outline:2px solid #576b5b}
+.art img{max-width:100%;max-height:450px;object-fit:contain}
+.note{text-align:center;font-size:12px;margin:25px 0;color:#797c75}
+button.secondary{font:inherit;background:transparent;border:1px solid #9c9f98;padding:12px 19px;border-radius:8px;cursor:pointer}
+button.secondary:hover{background:#eaece6}
+.result-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin:25px 0}
+.result{background:white;border:1px solid #deddd5;border-radius:12px;padding:13px}
+.result img{width:100%;height:215px;object-fit:contain}
+.result h3{font-size:14px;margin:10px 0 3px}.result p{font-size:12px;margin:3px 0}
+small{color:#686c65}
+.notice{border-top:1px solid #dbdad3;margin-top:38px;padding-top:16px;font-size:12px}
+.hidden{display:none}
+@media(max-width:600px){main{padding:13px}.art{min-height:220px;padding:6px}.art img{max-height:300px}.result-grid{grid-template-columns:1fr}.result{display:grid;grid-template-columns:110px 1fr;gap:12px}.result img{height:125px}.result div{align-self:center}}
+</style></head>
+<body><main><header><div class="eyebrow">KARIN-LAB / ART DISCOVERY</div><h1>どっちの絵が好き？</h1><p>知識はいりません。好きな方を、8回選ぶだけ。</p></header>
+<section id="quiz"><div class="progress"><div id="fill"></div></div><div id="question" aria-live="polite"></div><div id="paintings" class="art-grid"></div><p class="note">作者名と作品名は、結果まで内緒です。</p></section>
+<section id="results" class="hidden" aria-live="polite"><h2>あなたが好きそうな絵</h2><p>8回の選択から、まだ見ていない作品を選びました。</p><div id="recommendations" class="result-grid"></div><p id="explanation"></p><button class="secondary" id="restart">もう一度選ぶ</button><details style="margin-top:22px"><summary>判定の記録を見る</summary><pre id="audit" style="white-space:pre-wrap;overflow-wrap:anywhere;font-size:11px"></pre></details></section>
+<div class="notice"><b>研究用プレビュー v0.1</b><p>現在は作品リスト確定前の少数作品による動作検証版です。人気上位1,024点の正式選定、利用条件監査、推薦精度検証は未完了です。鑑賞時間は端末内で処理し、サーバーに送信しません。判定結果は嗜好を保証するものではありません。</p><a href="https://github.com/Karin-Laboratory/Cloudflare-Workers/tree/main/art-preference">計算式・ソースを確認</a></div>
+</main><script type="module" src="./app.js"></script></body></html>
