@@ -23,5 +23,5 @@ test("time weighting does not fabricate position bias",()=>{
  const records=Array.from({length:8},(_,i)=>({ms:500+i*200}));
  assert.equal(timingWeights(records,{enable:false}).every(v=>v===1),true);
  assert.ok(timingWeights(records).some(v=>v!==1));
- assert.equal(recommend(items,records.map((r,i)=>({...r,pair:[items[2*i].id,items[2*i+1].id],choice:i%2}))).sideBiasMode,"none: position counterbalanced");
+ assert.equal(recommend(items,records.map((r,i)=>({...r,pair:[items[2*i].id,items[2*i+1].id],choice:i%2}))).sideBiasMode,"none: deterministic seeded positions; balance not validated");
 });
