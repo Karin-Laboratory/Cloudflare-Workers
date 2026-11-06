@@ -1,0 +1,49 @@
+name: Art preference live smoke test
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'art-preference/proxy-worker.js'
+      - 'art-preference/app.js'
+      - 'art-preference/index.html'
+      - '.github/workflows/smoke-art-preference.yml'
+permissions:
+  contents: read
+jobs:
+  live:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check live domain, valid catalog and painting delivery
+        run: |
+          python3 - <<'PY'
+          import json,time,urllib.request
+          from urllib.error import HTTPError
+          root="https://art.karin-lab.com"
+          def get(path):
+            req=urllib.request.Request(root+path,headers={"User-Agent":"KarinLabSmoke/1.0","Cache-Control":"no-cache"})
+            with urllib.request.urlopen(req,timeout=50) as r:return r.status,r.headers,r.read()
+          status,_,body=get("/health")
+          health=json.loads(body);print("HEALTH",health)
+          assert status==200 and health.get("version")=="preview-v0.3"
+          catalog=None
+          for attempt in range(3):
+            try:
+              status,_,raw=get("/data/preview-artworks.json")
+              catalog=json.loads(raw);break
+            except Exception as e:
+              print("CATALOG RETRY",attempt,str(e));time.sleep(3)
+          assert catalog and len(catalog.get("artworks",[]))>=19, catalog
+          print("CATALOG COUNT",len(catalog["artworks"]))
+          checked=0
+          for p in catalog["artworks"][:8]:
+            try:
+              status,headers,data=get(p["image"])
+              assert status==200 and headers.get("content-type","").startswith("image/") and len(data)>1000
+              checked+=1
+            except Exception as e:print("IMAGE FAIL",p["id"],str(e))
+          print("IMAGES VERIFIED",checked,"/ 8")
+          assert checked>=6,"Less than 6 of first 8 painting images are accessible"
+          PY
