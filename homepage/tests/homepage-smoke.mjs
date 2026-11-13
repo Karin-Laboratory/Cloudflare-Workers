@@ -61,3 +61,52 @@ test('Intranet site links use distinct thematic SVG icons',()=>{
  assert.ok(!src.includes("privateHost?'/app-icon/'"));
  assert.ok(src.includes('intranetIconSlug(l,host)'));
 });
+
+function linkEditFixture(){
+ const begin=script[1].indexOf('function updateEditedLink(');
+ const end=script[1].indexOf('function edit(',begin);
+ assert.ok(begin>=0&&end>begin,'Link editor helper found');
+ const groups=[
+  {id:'first',links:[
+   {id:'a',title:'A',url:'https://a.example',description:''},
+   {id:'b',title:'B',url:'https://b.example',description:''},
+   {id:'c',title:'C',url:'https://c.example',description:''}
+  ]},
+  {id:'second',links:[{id:'d',title:'D',url:'https://d.example',description:''}]}
+ ];
+ const update=vm.runInNewContext(script[1].slice(begin,end)+'\nupdateEditedLink',{
+  findGroup:id=>groups.find(g=>g.id===id)
+ });
+ return {groups,update};
+}
+
+test('Editing an existing link in its group preserves its index and identity',()=>{
+ const {groups,update}=linkEditFixture();
+ const original=groups[0].links[1];
+ assert.equal(update('first','b','first',{title:'Renamed',url:'https://new.example',description:'Updated'}),true);
+ assert.deepEqual(groups[0].links.map(l=>l.id),['a','b','c']);
+ assert.equal(groups[0].links[1],original);
+ assert.equal(original.title,'Renamed');
+ assert.equal(original.url,'https://new.example');
+ assert.equal(original.description,'Updated');
+ assert.deepEqual(groups[1].links.map(l=>l.id),['d']);
+});
+
+test('Changing a link group moves it to the destination end, without affecting other links',()=>{
+ const {groups,update}=linkEditFixture();
+ const original=groups[0].links[1];
+ assert.equal(update('first','b','second',{title:'Moved',url:'https://moved.example',description:''}),true);
+ assert.deepEqual(groups[0].links.map(l=>l.id),['a','c']);
+ assert.deepEqual(groups[1].links.map(l=>l.id),['d','b']);
+ assert.equal(groups[1].links[1],original);
+ assert.equal(original.url,'https://moved.example');
+});
+
+test('Missing link or destination never reorders existing links',()=>{
+ const {groups,update}=linkEditFixture();
+ assert.equal(update('first','missing','second',{title:'Absent'}),false);
+ assert.equal(update('first','b','missing',{title:'Absent'}),false);
+ assert.deepEqual(groups[0].links.map(l=>l.id),['a','b','c']);
+ assert.deepEqual(groups[1].links.map(l=>l.id),['d']);
+ assert.equal(groups[0].links[1].title,'B');
+});
