@@ -1,0 +1,22 @@
+name: Check Homepage
+on:
+  push:
+    branches: [main]
+    paths: ['homepage/**', '.github/workflows/check-homepage.yml']
+  pull_request:
+    paths: ['homepage/**', '.github/workflows/check-homepage.yml']
+permissions:
+  contents: read
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check syntax and run homepage regressions
+        working-directory: homepage
+        run: |
+          node --check index.js
+          node --test tests/homepage-smoke.mjs
