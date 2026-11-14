@@ -42,7 +42,7 @@ function simulateHello(localDocs, cloudDocs, current=localDocs[0]?.id, closedIds
 
 test("new browser starts with exactly one unsaved blank, not all cloud documents", () => {
   const ctx=simulateHello([blank()], [cloud("one"),cloud("two"),cloud("three")]);
-  assert.deepEqual(ctx.docs.map(d=>d.id), ["local-blank"]);
+  assert.deepEqual(Array.from(ctx.docs,d=>d.id), ["local-blank"]);
   assert.equal(ctx.docs[0].created,false);
   assert.equal(ctx.docs[0].text,"");
   assert.equal(ctx.current,"local-blank");
@@ -55,7 +55,7 @@ test("returning browser restores only its previously open tabs in the same order
   const local=[{id:"two",text:"text two",shadow:"text two",created:true,dirty:false},
                {id:"one",text:"text one",shadow:"text one",created:true,dirty:false}];
   const ctx=simulateHello(local, [cloud("one"),cloud("two"),cloud("three")], "two");
-  assert.deepEqual(ctx.docs.map(d=>d.id), ["two","one"]);
+  assert.deepEqual(Array.from(ctx.docs,d=>d.id), ["two","one"]);
   assert.equal(ctx.current,"two");
   assert.equal(ctx.cloudFiles.has("three"),true);
 });
@@ -64,14 +64,14 @@ test("closed cloud tab stays closed after reconnect", () => {
   const ctx=simulateHello(
     [{id:"one",text:"text one",shadow:"text one",created:true,dirty:false}],
     [cloud("one"),cloud("two")], "one", ["two"]);
-  assert.deepEqual(ctx.docs.map(d=>d.id), ["one"]);
+  assert.deepEqual(Array.from(ctx.docs,d=>d.id), ["one"]);
   assert.equal(ctx.cloudFiles.size,2);
 });
 
 test("unsubmitted local draft is kept when server hello arrives", () => {
   const local={id:"draft",text:"an offline note",shadow:"",created:false,dirty:true,name:"メモ.txt"};
   const ctx=simulateHello([local], [cloud("one"),cloud("two")], "draft");
-  assert.deepEqual(ctx.docs.map(d=>d.id), ["draft"]);
+  assert.deepEqual(Array.from(ctx.docs,d=>d.id), ["draft"]);
   assert.equal(ctx.docs[0].text,"an offline note");
   assert.equal(ctx.docs[0].dirty,true);
   assert.deepEqual(ctx.scheduled,["draft"]);
@@ -79,6 +79,6 @@ test("unsubmitted local draft is kept when server hello arrives", () => {
 
 test("a browser with no saved open tabs still gets one blank", () => {
   const ctx=simulateHello([], [cloud("one"),cloud("two")]);
-  assert.deepEqual(ctx.docs.map(d=>d.id), ["replacement-blank"]);
+  assert.deepEqual(Array.from(ctx.docs,d=>d.id), ["replacement-blank"]);
   assert.equal(ctx.docs[0].created,false);
 });
