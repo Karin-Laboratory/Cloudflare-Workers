@@ -1,0 +1,25 @@
+name: Check Notepad
+
+on:
+  push:
+    paths:
+      - 'notepad/**'
+      - '.github/workflows/check-notepad.yml'
+  pull_request:
+    paths:
+      - 'notepad/**'
+      - '.github/workflows/check-notepad.yml'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Syntax and regression checks
+        working-directory: notepad
+        run: npm run check
