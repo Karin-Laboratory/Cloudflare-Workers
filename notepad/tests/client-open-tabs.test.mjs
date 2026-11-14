@@ -20,6 +20,7 @@ function cloud(id) {
 }
 
 function simulateHello(localDocs, cloudDocs, current=localDocs[0]?.id, closedIds=[]) {
+  const scheduled = [];
   const ctx = {
     docs: localDocs.map(d => ({ ...d })),
     cloudFiles: new Map(),
@@ -31,12 +32,12 @@ function simulateHello(localDocs, cloudDocs, current=localDocs[0]?.id, closedIds
     fresh: () => blank("replacement-blank"),
     applyTabOrder: () => {},
     show: () => {}, conn: () => {}, msg: () => {},
-    backup: () => {}, plan: () => { throw Error("clean tabs must not autosave"); },
+    backup: () => {}, plan: (d) => scheduled.push(d.id),
     migrate: () => {}, conflict: () => {},
   };
   const received = vm.runInNewContext(client.slice(start,end)+"\nreceived", ctx);
   received({ data:JSON.stringify({ type:"hello", docs:cloudDocs }) });
-  return ctx;
+  return { ...ctx, scheduled };
 }
 
 test("new browser starts with exactly one unsaved blank, not all cloud documents", () => {
@@ -47,6 +48,7 @@ test("new browser starts with exactly one unsaved blank, not all cloud documents
   assert.equal(ctx.current,"local-blank");
   assert.equal(ctx.cloudFiles.size,3);
   assert.equal(ctx.connected,true);
+  assert.deepEqual(ctx.scheduled,[]);
 });
 
 test("returning browser restores only its previously open tabs in the same order", () => {
@@ -72,6 +74,7 @@ test("unsubmitted local draft is kept when server hello arrives", () => {
   assert.deepEqual(ctx.docs.map(d=>d.id), ["draft"]);
   assert.equal(ctx.docs[0].text,"an offline note");
   assert.equal(ctx.docs[0].dirty,true);
+  assert.deepEqual(ctx.scheduled,["draft"]);
 });
 
 test("a browser with no saved open tabs still gets one blank", () => {
